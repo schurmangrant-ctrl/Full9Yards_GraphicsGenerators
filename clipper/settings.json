@@ -1,6 +1,10 @@
 {
-  "hosts": ["Grant"],
+  "hosts": ["Grant", "Noah", "Caden"],
   "handle": "@Full9Yards",
   "end_card_line": "Full episode on YouTube",
-  "whisper_model": "small"
+  "whisper_model": "small",
+  "speaker_switching": {
+    "mic_tracks": {"Grant": 2, "Noah": 3, "Caden": 4},
+    "boxes": "thirds"
+  }
 }

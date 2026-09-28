@@ -76,6 +76,16 @@ def media_duration(video: Path) -> float:
     return int(h) * 3600 + int(mnt) * 60 + float(s)
 
 
+def video_size(video: Path) -> tuple[int, int]:
+    from .render import ffmpeg_exe
+
+    probe = subprocess.run([ffmpeg_exe(), "-hide_banner", "-i", str(video)], capture_output=True, text=True).stderr
+    m = re.search(r"Video: .*?(\d{3,5})x(\d{3,5})", probe)
+    if not m:
+        raise SystemExit(f"Couldn't read the frame size of {video.name}.")
+    return int(m.group(1)), int(m.group(2))
+
+
 @lru_cache(maxsize=1)
 def _model(model_size: str):
     from faster_whisper import WhisperModel

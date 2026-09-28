@@ -29,6 +29,36 @@ Every clip comes out 1080×1920 with:
 4. Edit `settings.json`: add every host's name (these show up as host tag
    choices), and set your real handle and end card line.
 
+## Recording setup in OBS (free, one time)
+
+**Put each mic on its own track** so the camera can follow whoever is talking:
+
+1. Settings → Output → set Output Mode to **Advanced**. On the Recording tab,
+   tick audio tracks **1, 2, 3 and 4**, and record as **MKV**. MKV keeps every
+   track, and File → Remux Recordings turns it into an MP4 afterwards if you
+   need one.
+2. In the Audio Mixer, open the gear → **Advanced Audio Properties**. Tick
+   track 1 for every source, since that's the full mix YouTube gets. Then tick
+   track 2 only for Grant's mic, track 3 only for Noah's, and track 4 only for
+   Caden's.
+3. `settings.json` already says Grant = 2, Noah = 3, Caden = 4. Change it if
+   you set the tracks up differently.
+
+**Camera boxes.** `"boxes": "thirds"` means the recording is three cameras side
+by side, left to right in the order of `hosts`. If you record the YouTube
+layout instead, give each host's box in pixels of the recorded frame:
+`"boxes": {"Grant": [x, y, width, height], "Noah": [...], "Caden": [...]}`.
+Each clip crops the box of whoever is talking. The bigger the boxes are in
+the recording, the sharper the clips look.
+
+Recordings without the separate tracks still work. Their clips use the whole
+shot instead of following the speaker.
+
+**A free transcript while you record.** The LocalVocal plugin
+(https://github.com/royshil/obs-localvocal) transcribes on your own computer
+during the recording and can save an `.srt` that lines up with the recording.
+Hand that file to `--transcript`.
+
 ## Right after recording
 
 Pick whichever way suits the night.
@@ -65,7 +95,10 @@ Play each candidate, nudge the start or end, tick **Keep**, then press
 - turn the hook opener off, or move it,
 - edit the team list (comma separated, names as in `f9yclip/teams.json`),
 - set the framing:
-  - **Whole shot, blurred fill** (default) puts the full wide shot in the
+  - **Follow the speaker** (default when mic tracks are set up) cuts to
+    whoever is talking and shows their name the first time the camera lands
+    on them.
+  - **Whole shot, blurred fill** puts the full wide shot in the
     middle with a blurred copy above and below. It's safe for any camera setup.
   - **Crop left / center / right** is a tight vertical crop of one third of the
     frame, for when one host is talking and sits on that side.

@@ -13,7 +13,8 @@ from pathlib import Path
 from .pick import TEAMS, dress_clips, pick_clips
 from .render import render_all
 from .review import review
-from .transcribe import all_words, has_word_times, load_transcript_file, media_duration, transcribe, words_for_range
+from .speakers import MicTracksMissing, boxes, label_segments, mic_levels, shots, vertical_crops
+from .transcribe import all_words, has_word_times, load_transcript_file, media_duration, transcribe, video_size, words_for_range
 
 HERE = Path(__file__).resolve().parent.parent
 
@@ -42,6 +43,16 @@ def main() -> None:
     work = video.parent / f"{video.stem}_clips"
     work.mkdir(exist_ok=True)
 
+    # With each host's mic on its own track, the camera follows whoever is talking.
+    switching = settings.get("speaker_switching")
+    mics = crop = None
+    if switching and switching.get("mic_tracks"):
+        try:
+            mics = mic_levels(video, switching["mic_tracks"], work / "mic_levels.npz")
+            crop = vertical_crops(boxes(settings, mics[0], *video_size(video)))
+        except MicTracksMissing as e:
+            print(f"Note: {e}")
+
     if args.ranges:
         clips = read_ranges(args.ranges)
         for c in clips:
@@ -66,7 +77,12 @@ def main() -> None:
         picks_file = work / "candidates.json"
         if args.repick and picks_file.exists():
             picks_file.unlink()
+        if mics:
+            label_segments(transcript, *mics)
         candidates = pick_clips(transcript, guide, picks_file, count=args.count)
+
+    for c in candidates:
+        c.setdefault("layout", "speaker" if crop else "blur")
 
     if args.no_review:
         chosen = [c for c in candidates if c.get("keep") or (c.get("score") or 0) >= 7]
@@ -86,11 +102,15 @@ def main() -> None:
         elif not covers(c.get("words"), lo, c["end"]):
             print(f"Timing captions for {c['title']!r}...")
             c["words"] = words_for_range(video, max(lo - 0.5, 0), c["end"] + 0.5, whisper)
+        if c.get("layout") == "speaker" and mics:
+            c["shots"] = shots(*mics, c["start"], c["end"])
+            if c.get("use_hook"):
+                c["hook_shots"] = shots(*mics, c["hook_start"], c["hook_end"])
     (work / "approved.json").write_text(json.dumps(chosen, indent=2))
 
     per_day = max(args.per_day, 1)
     post_dates = [(args.first_post + timedelta(days=i // per_day)).strftime("%Y-%m-%d-%a") for i in range(len(chosen))]
-    outputs = render_all(video, chosen, work, settings, post_dates)
+    outputs = render_all(video, chosen, work, settings, post_dates, crop)
     print(f"\nDone. {len(outputs)} clips and captions.md are in {work}")
 
 

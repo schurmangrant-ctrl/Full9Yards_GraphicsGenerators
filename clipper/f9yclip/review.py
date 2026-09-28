@@ -28,10 +28,14 @@ def review(video: Path, transcript: dict, clips: list[dict], settings: dict, por
             elif self.path == "/data":
                 payload = {
                     "clips": clips,
-                    "segments": [{"start": s["start"], "end": s["end"], "text": s["text"]} for s in transcript["segments"]],
+                    "segments": [
+                        {"start": s["start"], "end": s["end"], "text": (f"{s['speaker']}: " if s.get("speaker") else "") + s["text"]}
+                        for s in transcript["segments"]
+                    ],
                     "hosts": settings.get("hosts", []),
                     "duration": transcript["duration"],
                     "episode": video.name,
+                    "speaker_switching": bool(settings.get("speaker_switching", {}).get("mic_tracks")),
                 }
                 self._send(200, json.dumps(payload).encode(), "application/json")
             elif self.path == "/video":

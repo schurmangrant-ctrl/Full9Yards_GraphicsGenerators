@@ -62,7 +62,10 @@ HOOK_AND_TEAMS = (
 
 
 def format_transcript(transcript: dict) -> str:
-    return "\n".join(f"[{seg['start']:.1f}-{seg['end']:.1f}] {seg['text']}" for seg in transcript["segments"])
+    return "\n".join(
+        f"[{seg['start']:.1f}-{seg['end']:.1f}] " + (f"{seg['speaker']}: " if seg.get("speaker") else "") + seg["text"]
+        for seg in transcript["segments"]
+    )
 
 
 def pick_clips(transcript: dict, guide: str, out: Path, count: int = 12) -> list[dict]:
@@ -74,7 +77,11 @@ def pick_clips(transcript: dict, guide: str, out: Path, count: int = 12) -> list
     prompt = (
         f"{guide}\n\n---\n\n"
         "Below is the full transcript of one episode. Each line is a transcript segment with its start and "
-        "end time in seconds. Speaker names are not labeled, so infer turns from context.\n\n"
+        "end time in seconds. "
+        + ("Lines are labeled with who was talking, detected from each host's mic, so treat the labels as "
+           "a strong hint rather than certain.\n\n" if any(s.get("speaker") for s in transcript["segments"])
+           else "Speaker names are not labeled, so infer turns from context.\n\n")
+        + 
         f"Find the {count} best clips in the episode, following the guide above. Start each clip at the first "
         "word of the take and end it at the last word. Clips must not overlap. Order them best first.\n\n"
         f"{HOOK_AND_TEAMS}\n\n<transcript>\n{format_transcript(transcript)}\n</transcript>"

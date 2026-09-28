@@ -154,6 +154,48 @@ def main():
     assert approved[1]["teams"][0]["name"] == "Denver Broncos"
     assert len(list((tmp / "second_clips").glob("*.mp4"))) == 2
     print("mode 2 ok")
+
+    # 3. Three cameras side by side, each host's mic on its own track: the
+    #    camera should follow whoever is loudest. Grant talks 0-6s, Noah 6-12s,
+    #    Caden 12-20s; each mic also hears the others faintly.
+    video3 = tmp / "three.mkv"
+    loud = {2: "lt(t,6)", 3: "between(t,6,12)", 4: "gte(t,12)"}
+    cmd = [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y",
+           "-f", "lavfi", "-i", "color=c=red:s=640x1080:d=20:r=30",
+           "-f", "lavfi", "-i", "color=c=lime:s=640x1080:d=20:r=30",
+           "-f", "lavfi", "-i", "color=c=blue:s=640x1080:d=20:r=30",
+           "-f", "lavfi", "-i", "sine=frequency=300:d=20"]
+    for track in (2, 3, 4):
+        cmd += ["-f", "lavfi", "-i", f"sine=frequency={100 * track + 200}:d=20"]
+    graph = "[0:v][1:v][2:v]hstack=inputs=3[v];" + ";".join(
+        f"[{i + 2}:a]volume='if({loud[i]},1,0.05)':eval=frame[a{i}]" for i in (2, 3, 4))
+    cmd += ["-filter_complex", graph, "-map", "[v]", "-map", "3:a", "-map", "[a2]", "-map", "[a3]", "-map", "[a4]",
+            "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", str(video3)]
+    subprocess.run(cmd, check=True)
+    ranges3 = tmp / "picks3.txt"
+    ranges3.write_text("0:02-0:18 Speaker test\n")
+    patch, client = fake_claude([
+        {"start": 2, "end": 18, "title": "x", "hook_start": 13.0, "hook_end": 16.0, "teams": [],
+         "why": "", "caption": "", "hashtags": [], "score": 8},
+    ])
+    with patch:
+        run_cli([str(video3), "--ranges", str(ranges3), "--no-review"])
+    clip = json.loads((tmp / "three_clips" / "approved.json").read_text())[0]
+    hosts = [h for _, _, h in clip["shots"]]
+    assert hosts == ["Grant", "Noah", "Caden"], clip["shots"]
+    assert abs(clip["shots"][1][0] - 4.0) < 0.8 and abs(clip["shots"][2][0] - 10.0) < 0.8, clip["shots"]
+    assert [h for _, _, h in clip["hook_shots"]] == ["Caden"], clip["hook_shots"]
+    out3 = next((tmp / "three_clips").glob("*.mp4"))
+    hook_len = 3.0
+    for t, want in [(1.0, "blue"), (hook_len + 2.0, "red"), (hook_len + 6.0, "green"), (hook_len + 12.0, "blue")]:
+        rgb = subprocess.run([ffmpeg_exe(), "-loglevel", "error", "-ss", str(t), "-i", str(out3), "-frames:v", "1",
+                              "-vf", "crop=10:10:900:300,scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                             capture_output=True, check=True).stdout
+        got = ["red", "green", "blue"][max(range(3), key=lambda k: rgb[k])]
+        assert got == want, (t, want, list(rgb))
+    subprocess.run([ffmpeg_exe(), "-loglevel", "error", "-y", "-ss", str(hook_len + 4.5), "-i", str(out3),
+                    "-frames:v", "1", str(tmp / "speaker.png")], check=True)
+    print("mode 3 ok:", clip["shots"], "frame:", tmp / "speaker.png")
     print("frames:", tmp / "hook.png", tmp / "opening.png")
 
 

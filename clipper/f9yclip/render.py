@@ -34,8 +34,14 @@ def ffmpeg_exe() -> str:
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
-def render_all(video: Path, clips: list[dict], out_dir: Path, settings: dict, post_dates: list[str] | None = None) -> list[Path]:
-    """Render each clip. Every clip must carry its own "words" (absolute word times)."""
+def render_all(
+    video: Path, clips: list[dict], out_dir: Path, settings: dict, post_dates: list[str] | None = None, crop: tuple | None = None
+) -> list[Path]:
+    """Render each clip. Every clip must carry its own "words" (absolute word times).
+
+    crop is (width, height, {host: (x, y)}) for the "speaker" layout, which also
+    needs "shots" (and "hook_shots" when opening on the hook) on each clip.
+    """
     from .pick import TEAMS
 
     logo_files = {t["name"]: t["logo"] for t in TEAMS}
@@ -65,7 +71,7 @@ def render_all(video: Path, clips: list[dict], out_dir: Path, settings: dict, po
         ass_name = f"clip{n:02d}.ass"
         (build / ass_name).write_text(clip_ass(clip, hook, settings))
         target = (out_dir / f"{name}.mp4").resolve()
-        render_one(video.resolve(), clip, hook, [(logo_files[t], a, b) for t, a, b in appearances], build, ass_name, target)
+        render_one(video.resolve(), clip, hook, [(logo_files[t], a, b) for t, a, b in appearances], build, ass_name, target, crop)
         outputs.append(target)
 
         tags = " ".join("#" + t.lstrip("#") for t in clip.get("hashtags", []))
@@ -104,9 +110,13 @@ def logo_appearances(clip: dict, hook_len: float) -> list[tuple[str, float, floa
     return shown
 
 
-def render_one(video: Path, clip: dict, hook, logos: list[tuple[str, float, float]], build: Path, ass_name: str, target: Path) -> None:
+def render_one(
+    video: Path, clip: dict, hook, logos: list[tuple[str, float, float]], build: Path, ass_name: str, target: Path, crop=None
+) -> None:
     start, end = clip["start"], clip["end"]
     layout = clip.get("layout", "blur")
+    if layout == "speaker" and not (crop and clip.get("shots")):
+        layout = "blur"
     body_len = (hook[1] - hook[0] if hook else 0) + end - start
 
     inputs = ["-ss", f"{start:.2f}", "-t", f"{end - start:.2f}", "-i", str(video)]
@@ -126,9 +136,10 @@ def render_one(video: Path, clip: dict, hook, logos: list[tuple[str, float, floa
 
     norm_v = f"fps={FPS},setsar=1,format=yuv420p"
     norm_a = "aformat=sample_rates=48000:channel_layouts=stereo"
-    parts = [f"{frame(0, layout)},{norm_v}[mv]", f"[0:a]{norm_a}[ma]"]
+    parts = [f"{frame(0, layout, clip.get('shots'), crop)},{norm_v}[mv]", f"[0:a:0]{norm_a}[ma]"]
     if hook:
-        parts += [f"{frame(1, layout)},{norm_v}[hv]", f"[1:a]{norm_a}[ha]", "[hv][ha][mv][ma]concat=n=2:v=1:a=1[bv0][ba]"]
+        hook_layout = layout if layout != "speaker" or clip.get("hook_shots") else "blur"
+        parts += [f"{frame(1, hook_layout, clip.get('hook_shots'), crop)},{norm_v}[hv]", f"[1:a:0]{norm_a}[ha]", "[hv][ha][mv][ma]concat=n=2:v=1:a=1[bv0][ba]"]
     else:
         parts += ["[mv]null[bv0]", "[ma]anull[ba]"]
 
@@ -163,7 +174,15 @@ def render_one(video: Path, clip: dict, hook, logos: list[tuple[str, float, floa
     subprocess.run(cmd, cwd=build, check=True)
 
 
-def frame(i: int, layout: str) -> str:
+def frame(i: int, layout: str, shots=None, crop=None) -> str:
+    if layout == "speaker":
+        cw, ch, spots = crop
+        x = y = None
+        for t0, t1, host in reversed(shots):
+            sx, sy = spots[host]
+            x = f"{sx}" if x is None else f"if(lt(t\\,{t1:.2f})\\,{sx}\\,{x})"
+            y = f"{sy}" if y is None else f"if(lt(t\\,{t1:.2f})\\,{sy}\\,{y})"
+        return f"[{i}:v]crop=w={cw}:h={ch}:x={x}:y={y},scale={W}:{H}"
     if layout == "blur":
         return (
             f"[{i}:v]split[a{i}][b{i}];"
@@ -188,6 +207,14 @@ def clip_ass(clip: dict, hook, settings: dict) -> str:
     speaker = clip.get("speaker", "").strip()
     if speaker:
         events.append(dialogue("Name", hook_len, min(total, hook_len + 6), speaker.upper()))
+    elif clip.get("layout") == "speaker":
+        # Name each host the first time the camera lands on them.
+        seen = set()
+        for offset, shot_list in [(0.0, clip.get("hook_shots") if hook else None), (hook_len, clip.get("shots"))]:
+            for t0, t1, host in shot_list or []:
+                if host not in seen and t1 - t0 >= 1.5:
+                    seen.add(host)
+                    events.append(dialogue("Name", offset + t0, min(offset + t0 + 2.2, total), host.upper()))
 
     stretches = [(start, end, hook_len)]
     if hook:

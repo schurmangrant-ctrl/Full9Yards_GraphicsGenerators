@@ -102,7 +102,7 @@ function draw() {
       <div class="row">
         <span class="small">Framing</span>
         <select data-f="layout" aria-label="Framing">
-          ${[['blur', 'Whole shot, blurred fill'], ['left', 'Crop left'], ['center', 'Crop center'], ['right', 'Crop right']]
+          ${[...(data.speaker_switching ? [['speaker', 'Follow the speaker']] : []), ['blur', 'Whole shot, blurred fill'], ['left', 'Crop left'], ['center', 'Crop center'], ['right', 'Crop right']]
             .map(([v, t]) => `<option value="${v}" ${c.layout === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
         <span class="small">Host tag</span>

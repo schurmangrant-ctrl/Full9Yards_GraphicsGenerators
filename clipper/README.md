@@ -1,21 +1,19 @@
 # F9Y Clip Machine
 
-Turn a full podcast episode (up to about two hours) into ready-to-post
-vertical clips for TikTok, Instagram Reels and YouTube Shorts.
+Turn a full podcast episode into ready-to-post vertical clips for TikTok,
+Instagram Reels and YouTube Shorts, on the same night you record.
 
-1. **Transcribe.** Whisper runs on your computer and writes down every word
-   with its exact time. It's free.
-2. **Pick.** Claude reads the whole transcript and shortlists 10 to 15 complete
-   takes, using `clip_guide.md` as its idea of a good F9Y clip. Each one comes
-   with an on-screen hook line and a post caption.
-3. **Review.** A page opens in your browser. Play each candidate, nudge the
-   start or end, set the framing and host tag, edit the hook, and tick
-   **Keep**. Then press **Render kept clips**.
-4. **Render.** Each kept clip comes out 1080×1920 with word-by-word captions,
-   the hook at the top, an optional host name tag, and a 2-second F9Y end card.
-   `captions.md` has the caption and hashtags for every clip.
+Every clip comes out 1080×1920 with:
 
-Everything lands in a folder next to the episode called `<episode>_clips/`.
+- **A hook opener.** The punchiest 2 to 6 second line plays first, then the
+  whole take.
+- **Team logos.** The teams the clip is about appear under the title as it
+  opens, and again when a team first comes up later. All 32 NFL teams and the
+  FBS teams from f9ytools are included.
+- Word-by-word captions, the title at the top, an optional host tag, and a
+  2-second F9Y end card.
+
+`captions.md` has each clip's post caption and hashtags.
 
 ## One-time setup
 
@@ -31,41 +29,61 @@ Everything lands in a folder next to the episode called `<episode>_clips/`.
 4. Edit `settings.json`: add every host's name (these show up as host tag
    choices), and set your real handle and end card line.
 
-## Fitting it into a recording night
+## Right after recording
 
-1. **Recording night, before bed:** start the slow part and let it run overnight.
-   ```
-   python -m f9yclip "/path/to/episode.mp4" --prep
-   ```
-   This transcribes and asks Claude for candidates, then stops.
-2. **Next batch night, about 20 minutes:** run the same command without
-   `--prep`. It skips straight to the review page. Keep the good clips, render,
-   then schedule them from the output folder: TikTok Studio on desktop (up to 10 days
-   ahead), Meta Business Suite for Instagram, and YouTube Studio for Shorts.
-   Every file name starts with its suggested post date, one clip a day starting
-   tomorrow. Change that with `--first-post 2026-10-06` or `--per-day 2`.
+Pick whichever way suits the night.
 
-## Each episode
-
+**Let Claude find the clips.** Export a transcript from your recording or
+editing app as `.srt` or `.vtt`, then:
 ```
-python -m f9yclip "/path/to/episode.mp4"
+python -m f9yclip "episode.mp4" --transcript "episode.srt"
 ```
+Claude reads it and the review page opens a couple of minutes later. Only the
+clips you keep get transcribed for word-by-word captions, so there's no long wait.
 
-- The first run downloads the Whisper model (a few hundred MB).
-- Transcribing is the slow step on a laptop. It only happens once per episode,
-  because the transcript is saved and reused.
-- Want different picks? `python -m f9yclip episode.mp4 --repick`
-- Want more or fewer? `--count 20`
-- In a hurry? `--no-review` skips the page and renders every candidate
-  Claude scored 7 or higher. The review step is what makes the clips good,
-  so use this sparingly.
+**Name the clips yourself.** Write the moments you want in a text file, one
+per line, with an optional title:
+```
+12:30-13:45 JJ McCarthy is HIM
+1:02:10 - 1:03:00
+```
+then:
+```
+python -m f9yclip "episode.mp4" --ranges picks.txt
+```
+Claude writes the titles you left blank, the hooks, the teams and the post
+captions. Add `--no-review` to go straight to rendering.
 
-## Framing options on the review page
+No transcript and no list? `python -m f9yclip "episode.mp4"` still works, but
+it transcribes the whole episode first, which is slow on a laptop.
 
-- **Whole shot, blurred fill** (default): the full wide shot in the middle
-  with a blurred copy filling the top and bottom. Safe for any camera setup.
-- **Crop left / center / right**: a tight vertical crop of one third of the
-  frame. Use it when a single host is talking and sits on that side.
+## The review page
+
+Play each candidate, nudge the start or end, tick **Keep**, then press
+**Render kept clips**. Per clip you can also:
+
+- turn the hook opener off, or move it,
+- edit the team list (comma separated, names as in `f9yclip/teams.json`),
+- set the framing:
+  - **Whole shot, blurred fill** (default) puts the full wide shot in the
+    middle with a blurred copy above and below. It's safe for any camera setup.
+  - **Crop left / center / right** is a tight vertical crop of one third of the
+    frame, for when one host is talking and sits on that side.
+
+## Scheduling the week
+
+Every file name starts with its suggested post date, one clip a day starting
+tomorrow (`--first-post 2026-10-06` or `--per-day 2` to change it). Schedule
+from TikTok Studio on desktop (up to 10 days ahead), Meta Business Suite for
+Instagram, and YouTube Studio for Shorts.
+
+## Options
+
+- `--repick` asks Claude for fresh candidates instead of reusing the last picks.
+- `--count 20` asks for more or fewer candidates.
+- `--no-review` skips the review page and renders your ranges, or every
+  candidate Claude scored 7 or higher.
+- The Whisper model (a few hundred MB) downloads the first time captions are timed.
 
 ## Teaching it your taste
 
@@ -79,5 +97,5 @@ hit"), and the next episode's picks will follow it.
 python -m tests.smoke_test
 ```
 
-This renders two clips from a generated test video with a stand-in for
-Claude, so it needs no API key and no model download.
+This runs both modes end to end on a generated test video, with stand-ins for
+Claude, Whisper and the review page, so it needs no API key and no model download.

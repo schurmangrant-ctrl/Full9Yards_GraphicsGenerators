@@ -74,7 +74,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': 
 
 fetch('/data').then(r => r.json()).then(d => {
   data = d;
-  clips = d.clips.map(c => ({ layout: 'blur', speaker: '', keep: (c.score ?? 0) >= 7, ...c }));
+  clips = d.clips.map(c => ({ layout: 'blur', speaker: '', keep: c.keep ?? (c.score ?? 0) >= 7, ...c }));
   document.getElementById('hosts').innerHTML = d.hosts.map(h => `<option value="${esc(h)}">`).join('');
   draw();
 });
@@ -108,6 +108,15 @@ function draw() {
         <span class="small">Host tag</span>
         <input type="text" list="hosts" data-f="speaker" value="${esc(c.speaker)}" placeholder="optional" aria-label="Host name tag">
       </div>
+      <div class="row">
+        <label class="keep" style="margin-left:0"><input type="checkbox" data-f="use_hook" ${c.use_hook ? 'checked' : ''}> Open with hook</label>
+        <button data-a="hook">▶ Hook</button>
+        <input type="number" step="0.1" data-f="hook_start" value="${(c.hook_start ?? 0).toFixed(1)}" aria-label="Hook start seconds">
+        <span class="small">to</span>
+        <input type="number" step="0.1" data-f="hook_end" value="${(c.hook_end ?? 0).toFixed(1)}" aria-label="Hook end seconds">
+        <span class="small">Teams</span>
+        <input type="text" data-f="teams" value="${esc((c.teams || []).map(t => t.name).join(', '))}" placeholder="none" aria-label="Teams, comma separated" style="flex:1;min-width:160px">
+      </div>
       <div class="said">${esc(said(c))}</div>
       <textarea data-f="caption" aria-label="Post caption">${esc(c.caption)}</textarea>
     </div>`).join('');
@@ -116,8 +125,14 @@ function draw() {
 list.addEventListener('change', e => {
   const card = e.target.closest('.card'); if (!card) return;
   const c = clips[+card.dataset.i], f = e.target.dataset.f;
-  if (f === 'keep') c.keep = e.target.checked;
-  else if (f === 'start' || f === 'end') c[f] = Math.max(0, parseFloat(e.target.value) || 0);
+  if (f === 'keep' || f === 'use_hook') c[f] = e.target.checked;
+  else if (['start', 'end', 'hook_start', 'hook_end'].includes(f)) c[f] = Math.max(0, parseFloat(e.target.value) || 0);
+  else if (f === 'teams') {
+    const before = Object.fromEntries((c.teams || []).map(t => [t.name.toLowerCase(), t]));
+    c.teams = e.target.value.split(',').map(x => x.trim()).filter(Boolean)
+      .map(n => before[n.toLowerCase()] || { name: n, at: c.start });
+    return;
+  }
   else if (f) { c[f] = e.target.value; return; }
   draw();
 });
@@ -127,6 +142,7 @@ list.addEventListener('click', e => {
   const i = +btn.closest('.card').dataset.i, c = clips[i];
   const a = btn.dataset.a;
   if (a === 'play') return play(i);
+  if (a === 'hook') { playingIndex = i; stopAt = c.hook_end; player.currentTime = c.hook_start; player.play(); return draw(); }
   if (a === 's-') c.start = Math.max(0, c.start - 1);
   if (a === 's+') c.start = Math.min(c.end - 1, c.start + 1);
   if (a === 'e-') c.end = Math.max(c.start + 1, c.end - 1);
@@ -150,7 +166,7 @@ player.addEventListener('timeupdate', () => {
 
 document.getElementById('add').onclick = () => {
   const t = player.currentTime || 0;
-  clips.unshift({ start: t, end: Math.min(t + 45, data.duration), title: 'New clip', caption: '', hashtags: [], layout: 'blur', speaker: '', keep: true });
+  clips.unshift({ start: t, end: Math.min(t + 45, data.duration), title: 'New clip', caption: '', hashtags: [], teams: [], use_hook: false, hook_start: t, hook_end: t, layout: 'blur', speaker: '', keep: true });
   draw(); play(0);
 };
 

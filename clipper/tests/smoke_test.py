@@ -1,21 +1,24 @@
-"""Offline smoke test: fake episode + fake transcript + stubbed Claude, real render.
+"""Offline smoke test of the whole pipeline with a generated video.
 
 Run from the clipper folder:  python -m tests.smoke_test
-Needs no API key and no whisper model download.
+Claude, Whisper and the review page are stood in for, so it needs no API
+key, no model download and no browser. Rendering and file handling are real.
 """
 
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from unittest import mock
 
+from f9yclip import __main__ as cli
 from f9yclip import pick
-from f9yclip.render import ffmpeg_exe, render_all
+from f9yclip.render import ffmpeg_exe
 
 SENTENCES = [
     "Okay so here is my hot take for the week.",
-    "The Broncos defense is the best unit in football and it is not close.",
+    "JJ McCarthy is so good on this Giants team.",
     "No way, you are crazy, look at the pressure rate numbers.",
     "I did look, they are first in EPA per play allowed since week three.",
     "Fine, but the offense is still a bottom ten group.",
@@ -23,16 +26,34 @@ SENTENCES = [
 ]
 
 
-def fake_transcript() -> dict:
-    t, segments = 0.5, []
+def fake_words() -> list[dict]:
+    t, words = 0.5, []
     for s in SENTENCES:
-        words = []
         for w in s.split():
             words.append({"start": round(t, 2), "end": round(t + 0.32, 2), "word": w})
             t += 0.38
-        segments.append({"start": words[0]["start"], "end": words[-1]["end"], "text": s, "words": words})
         t += 0.5
-    return {"duration": 30.0, "segments": segments}
+    return words
+
+
+WORDS = fake_words()
+
+
+def fake_words_for_range(video, start, end, model_size="small"):
+    return [w for w in WORDS if start - 0.05 <= w["start"] and w["end"] <= end + 0.05]
+
+
+def write_srt(path: Path) -> None:
+    def ts(x):
+        ms = int(round(x * 1000))
+        return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
+
+    blocks, i = [], 0
+    for n, s in enumerate(SENTENCES, 1):
+        ws = WORDS[i:i + len(s.split())]
+        i += len(ws)
+        blocks.append(f"{n}\n{ts(ws[0]['start'])} --> {ts(ws[-1]['end'])}\n{s}\n")
+    path.write_text("\n".join(blocks))
 
 
 class FakeStream:
@@ -46,8 +67,25 @@ class FakeStream:
         return False
 
     def get_final_message(self):
-        block = mock.Mock(type="text", text=self.text)
-        return mock.Mock(stop_reason="end_turn", content=[block])
+        return mock.Mock(stop_reason="end_turn", content=[mock.Mock(type="text", text=self.text)])
+
+
+def fake_claude(clips):
+    client = mock.Mock()
+    client.beta.messages.stream.return_value = FakeStream(json.dumps({"clips": clips}))
+    return mock.patch.object(pick.anthropic, "Anthropic", return_value=client), client
+
+
+def run_cli(argv):
+    with mock.patch.object(sys, "argv", ["f9yclip", *argv]):
+        cli.main()
+
+
+def check_video(path: Path, min_seconds: float) -> None:
+    probe = subprocess.run([ffmpeg_exe(), "-hide_banner", "-i", str(path)], capture_output=True, text=True).stderr
+    assert "1080x1920" in probe, probe
+    h, m, s = probe.split("Duration: ")[1].split(",")[0].split(":")
+    assert int(h) * 3600 + int(m) * 60 + float(s) >= min_seconds, probe
 
 
 def main():
@@ -60,39 +98,63 @@ def main():
          "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", "-shortest", str(video)],
         check=True,
     )
-    transcript = fake_transcript()
+    patches = [
+        mock.patch.object(cli, "words_for_range", side_effect=fake_words_for_range),
+        mock.patch.object(cli, "review", side_effect=lambda v, t, clips, s, port: [dict(c, keep=True) for c in clips if (c.get("score") or 9) >= 7]),
+    ]
+    for p in patches:
+        p.start()
 
-    # Claude answers with rough times that cut into words; picking must snap them.
-    answer = {"clips": [
-        {"start": 3.1, "end": 13.9, "title": "Broncos D is the best in football", "why": "Strong take plus a stat",
-         "caption": "Best defense in the league?", "hashtags": ["nfl", "broncos"], "score": 9},
-        {"start": 14.0, "end": 16.0, "title": "Too short", "why": "", "caption": "", "hashtags": [], "score": 3},
-    ]}
-    fake_client = mock.Mock()
-    fake_client.beta.messages.stream.return_value = FakeStream(json.dumps(answer))
-    with mock.patch.object(pick.anthropic, "Anthropic", return_value=fake_client):
-        clips = pick.pick_clips(transcript, "guide", tmp / "candidates.json", count=2)
+    # 1. Claude picks from an imported .srt: hook opener + two team logos.
+    srt = tmp / "episode.srt"
+    write_srt(srt)
+    hook_line = next(w for w in WORDS if w["word"] == "JJ")
+    patch, client = fake_claude([
+        {"start": 0.9, "end": 16.2, "title": "JJ McCarthy is HIM", "hook_start": hook_line["start"],
+         "hook_end": hook_line["start"] + 3.0, "teams": [{"name": "New York Giants", "at": hook_line["start"] + 2},
+                                                        {"name": "Minnesota Vikings", "at": 12.0},
+                                                        {"name": "Not A Team", "at": 3.0}],
+         "why": "Bold take", "caption": "Is JJ that guy?", "hashtags": ["nfl"], "score": 9},
+        {"start": 20.0, "end": 22.0, "title": "Too short", "hook_start": 0, "hook_end": 0, "teams": [],
+         "why": "", "caption": "", "hashtags": [], "score": 3},
+    ])
+    with patch:
+        run_cli([str(video), "--transcript", str(srt), "--first-post", "2026-10-01"])
+    prompt = client.beta.messages.stream.call_args.kwargs["messages"][0]["content"]
+    assert "JJ McCarthy is so good" in prompt and "New York Giants" in prompt
+    out = tmp / "episode_clips"
+    approved = json.loads((out / "approved.json").read_text())
+    assert len(approved) == 1 and approved[0]["use_hook"], approved
+    assert [t["name"] for t in approved[0]["teams"]] == ["New York Giants", "Minnesota Vikings"], approved[0]["teams"]
+    rendered = sorted(out.glob("*.mp4"))
+    assert rendered[0].name.startswith("2026-10-01-Thu_01-jj-mccarthy"), rendered
+    clip_len = approved[0]["end"] - approved[0]["start"]
+    check_video(rendered[0], clip_len + 3.0 + 1.5)  # hook + clip + end card
+    for sec, name in [(1.0, "hook.png"), (4.0, "opening.png")]:
+        subprocess.run([ffmpeg_exe(), "-loglevel", "error", "-y", "-ss", str(sec), "-i", str(rendered[0]),
+                        "-frames:v", "1", str(tmp / name)], check=True)
+    print("mode 1 ok:", rendered[0].name)
 
-    kwargs = fake_client.beta.messages.stream.call_args.kwargs
-    assert kwargs["model"] == "claude-opus-5-5" and kwargs["fallbacks"] == "default"
-    assert "Broncos defense" in kwargs["messages"][0]["content"]
-    assert len(clips) == 1, clips  # the 2-second pick is dropped
-    words = [w for s in transcript["segments"] for w in s["words"]]
-    assert any(abs(clips[0]["start"] - (w["start"] - 0.15)) < 0.01 for w in words), clips[0]
-
-    variants = [dict(clips[0], layout="blur", speaker="Grant"), dict(clips[0], layout="center", title="Crop test")]
-    outputs = render_all(video, transcript, variants, tmp / "out", {"handle": "@Full9Yards"}, ["2026-10-01-Wed", "2026-10-02-Thu"])
-    assert outputs[0].name.startswith("2026-10-01-Wed_01-"), outputs[0].name
-    for out in outputs:
-        probe = subprocess.run([ffmpeg_exe(), "-hide_banner", "-i", str(out)], capture_output=True, text=True).stderr
-        assert "1080x1920" in probe, probe
-        print("rendered", out)
-    frame = tmp / "frame.png"
-    subprocess.run([ffmpeg_exe(), "-loglevel", "error", "-y", "-ss", "2", "-i", str(outputs[0]), "-frames:v", "1", str(frame)], check=True)
-    end = tmp / "endcard.png"
-    subprocess.run([ffmpeg_exe(), "-loglevel", "error", "-y", "-sseof", "-1", "-i", str(outputs[0]), "-frames:v", "1", str(end)], check=True)
-    print("frames:", frame, end)
-    print((tmp / "out" / "captions.md").read_text())
+    # 2. Hosts name their own clips; Claude only writes titles, hooks and teams.
+    ranges = tmp / "picks.txt"
+    ranges.write_text("0:01-0:09 My own title\n\nnot a range\n0:14.5 - 0:25\n")
+    patch, client = fake_claude([
+        {"start": 1, "end": 9, "title": "ignored", "hook_start": 0, "hook_end": 0, "teams": [],
+         "why": "", "caption": "Take one", "hashtags": ["nfl"], "score": 8},
+        {"start": 14.5, "end": 25, "title": "Offense is bottom ten", "hook_start": 0, "hook_end": 0,
+         "teams": [{"name": "denver broncos", "at": 15}], "why": "", "caption": "Take two", "hashtags": [], "score": 8},
+    ])
+    out2 = tmp / "second"
+    video2 = tmp / "second.mp4"
+    video2.write_bytes(video.read_bytes())
+    with patch:
+        run_cli([str(video2), "--ranges", str(ranges), "--no-review"])
+    approved = json.loads((tmp / "second_clips" / "approved.json").read_text())
+    assert [c["title"] for c in approved] == ["My own title", "Offense is bottom ten"], approved
+    assert approved[1]["teams"][0]["name"] == "Denver Broncos"
+    assert len(list((tmp / "second_clips").glob("*.mp4"))) == 2
+    print("mode 2 ok")
+    print("frames:", tmp / "hook.png", tmp / "opening.png")
 
 
 if __name__ == "__main__":

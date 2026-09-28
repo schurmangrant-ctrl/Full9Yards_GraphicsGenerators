@@ -1,7 +1,7 @@
-"""Ask Claude to read the whole transcript and shortlist complete takes.
+"""Ask Claude to find complete takes, or to dress up takes you picked yourself.
 
-The picker returns rough times; they are then snapped to whole words so a
-clip never starts or ends mid-word.
+Either way each clip comes back with an on-screen title, a hook line to open
+on, the teams it's about, and a post caption.
 """
 
 import json
@@ -12,7 +12,29 @@ import anthropic
 from .transcribe import all_words
 
 MODEL = "claude-opus-5-5"
+TEAMS = json.loads((Path(__file__).parent / "teams.json").read_text())
 
+CLIP_FIELDS = {
+    "start": {"type": "number", "description": "Start time in seconds"},
+    "end": {"type": "number", "description": "End time in seconds"},
+    "title": {"type": "string", "description": "On-screen title, max 8 words"},
+    "hook_start": {"type": "number", "description": "Start of the single punchiest line inside the clip, in seconds"},
+    "hook_end": {"type": "number", "description": "End of that line; 2 to 6 seconds after hook_start. Equal to hook_start if no line works as a hook."},
+    "teams": {
+        "type": "array",
+        "description": "Teams the clip is about, each with the time it is first named. Use names exactly as in the team list.",
+        "items": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "at": {"type": "number"}},
+            "required": ["name", "at"],
+            "additionalProperties": False,
+        },
+    },
+    "why": {"type": "string", "description": "One sentence on why this clip works"},
+    "caption": {"type": "string", "description": "Post caption, 1-2 sentences, ends with a question that invites comments"},
+    "hashtags": {"type": "array", "items": {"type": "string"}},
+    "score": {"type": "integer", "description": "1-10, how confident you are this clip will perform"},
+}
 CLIP_SCHEMA = {
     "type": "object",
     "properties": {
@@ -20,16 +42,8 @@ CLIP_SCHEMA = {
             "type": "array",
             "items": {
                 "type": "object",
-                "properties": {
-                    "start": {"type": "number", "description": "Start time in seconds"},
-                    "end": {"type": "number", "description": "End time in seconds"},
-                    "title": {"type": "string", "description": "On-screen hook text, max 8 words"},
-                    "why": {"type": "string", "description": "One sentence on why this clip works"},
-                    "caption": {"type": "string", "description": "Post caption, 1-2 sentences, ends with a question that invites comments"},
-                    "hashtags": {"type": "array", "items": {"type": "string"}},
-                    "score": {"type": "integer", "description": "1-10, how confident you are this clip will perform"},
-                },
-                "required": ["start", "end", "title", "why", "caption", "hashtags", "score"],
+                "properties": CLIP_FIELDS,
+                "required": list(CLIP_FIELDS),
                 "additionalProperties": False,
             },
         }
@@ -37,6 +51,14 @@ CLIP_SCHEMA = {
     "required": ["clips"],
     "additionalProperties": False,
 }
+
+HOOK_AND_TEAMS = (
+    "For each clip also choose the hook: the single most attention-grabbing line inside it, 2 to 6 "
+    "seconds long, such as a bold claim or a funny reaction. The video opens on that line before playing "
+    "the whole clip, so it must make sense on its own. List the teams the clip is about with the time "
+    "each is first named, including teams implied by a player's name. Use only names from this list:\n"
+    + "; ".join(t["name"] for t in TEAMS)
+)
 
 
 def format_transcript(transcript: dict) -> str:
@@ -49,52 +71,87 @@ def pick_clips(transcript: dict, guide: str, out: Path, count: int = 12) -> list
         return json.loads(out.read_text())
 
     print(f"Asking Claude for about {count} clip candidates...")
-    client = anthropic.Anthropic()
     prompt = (
-        f"{guide}\n\n"
-        "---\n\n"
-        f"Below is the full transcript of one episode. Each line is a transcript segment with its "
-        f"start and end time in seconds. Speaker names are not labeled, so infer turns from context.\n\n"
-        f"Find the {count} best clips in the episode, following the guide above. Use the segment "
-        f"times to set start and end, starting at the first word of the take and ending at the last "
-        f"word of it. Clips must not overlap. Order them best first.\n\n"
-        f"<transcript>\n{format_transcript(transcript)}\n</transcript>"
+        f"{guide}\n\n---\n\n"
+        "Below is the full transcript of one episode. Each line is a transcript segment with its start and "
+        "end time in seconds. Speaker names are not labeled, so infer turns from context.\n\n"
+        f"Find the {count} best clips in the episode, following the guide above. Start each clip at the first "
+        "word of the take and end it at the last word. Clips must not overlap. Order them best first.\n\n"
+        f"{HOOK_AND_TEAMS}\n\n<transcript>\n{format_transcript(transcript)}\n</transcript>"
     )
+    clips = _ask(prompt)
 
+    words = all_words(transcript)
+    picked = []
+    for clip in clips:
+        if words:
+            clip["start"], clip["end"] = snap_to_words(words, clip["start"], clip["end"])
+        else:
+            clip["start"], clip["end"] = snap_to_segments(transcript["segments"], clip["start"], clip["end"])
+        clip["end"] = min(clip["end"], transcript["duration"])
+        if clip["end"] - clip["start"] >= 5:
+            picked.append(tidy(clip))
+
+    out.write_text(json.dumps(picked, indent=2))
+    print(f"Got {len(picked)} candidates.")
+    return picked
+
+
+def dress_clips(clips: list[dict], guide: str) -> list[dict]:
+    """Write titles, hooks, teams and captions for clips the hosts chose themselves."""
+    print(f"Asking Claude to write titles and hooks for your {len(clips)} clips...")
+    listing = "\n\n".join(
+        f"<clip index=\"{i}\" start=\"{c['start']:.1f}\" end=\"{c['end']:.1f}\">\n"
+        + " ".join(f"[{w['start']:.1f}] {w['word']}" for w in c["words"])
+        + "\n</clip>"
+        for i, c in enumerate(clips)
+    )
+    prompt = (
+        f"{guide}\n\n---\n\n"
+        "The hosts already chose these clips. Each is shown with word times in seconds. Return one entry per "
+        "clip, in the same order, keeping each clip's start and end exactly as given. Write the title, caption "
+        "and hashtags following the guide above.\n\n"
+        f"{HOOK_AND_TEAMS}\n\n{listing}"
+    )
+    answers = _ask(prompt)
+    dressed = []
+    for clip, ans in zip(clips, answers):
+        ans.update(start=clip["start"], end=clip["end"])
+        dressed.append(tidy(ans))
+    return dressed
+
+
+def tidy(clip: dict) -> dict:
+    """Drop hooks and teams that fall outside the clip or aren't in the team list."""
+    known = {t["name"].lower(): t["name"] for t in TEAMS}
+    clip["teams"] = [
+        {"name": known[t["name"].lower()], "at": t["at"]}
+        for t in clip.get("teams", [])
+        if t["name"].lower() in known and clip["start"] - 1 <= t["at"] <= clip["end"]
+    ]
+    hs, he = clip.get("hook_start", 0), clip.get("hook_end", 0)
+    clip["use_hook"] = clip["start"] <= hs < he <= clip["end"] and 1.5 <= he - hs <= 8 and hs - clip["start"] > 2
+    return clip
+
+
+def _ask(prompt: str) -> list[dict]:
+    client = anthropic.Anthropic()
     with client.beta.messages.stream(
         model=MODEL,
         max_tokens=32000,
         betas=["server-side-fallback-2026-07-01"],
         fallbacks="default",
-        output_config={
-            "effort": "high",
-            "format": {"type": "json_schema", "schema": CLIP_SCHEMA},
-        },
+        output_config={"effort": "high", "format": {"type": "json_schema", "schema": CLIP_SCHEMA}},
         messages=[{"role": "user", "content": prompt}],
     ) as stream:
         response = stream.get_final_message()
 
     if response.stop_reason == "refusal":
-        raise SystemExit("Claude declined to pick clips from this transcript. Try re-running.")
+        raise SystemExit("Claude declined this request. Try re-running.")
     if response.stop_reason == "max_tokens":
-        raise SystemExit("Claude's answer was cut off. Try re-running with fewer clips (--count).")
-
+        raise SystemExit("Claude's answer was cut off. Try again with fewer clips (--count).")
     text = next(b.text for b in response.content if b.type == "text")
-    clips = json.loads(text)["clips"]
-
-    words = all_words(transcript)
-    duration = transcript["duration"]
-    picked = []
-    for clip in clips:
-        start, end = snap_to_words(words, clip["start"], clip["end"])
-        if end - start < 5:
-            continue
-        clip["start"], clip["end"] = start, min(end, duration)
-        picked.append(clip)
-
-    out.write_text(json.dumps(picked, indent=2))
-    print(f"Got {len(picked)} candidates.")
-    return picked
+    return json.loads(text)["clips"]
 
 
 def snap_to_words(words: list[dict], start: float, end: float) -> tuple[float, float]:
@@ -104,4 +161,12 @@ def snap_to_words(words: list[dict], start: float, end: float) -> tuple[float, f
     if first is None or last is None:
         return start, end
     # A small lead-in and tail keep the first and last word from sounding clipped.
+    return round(max(first["start"] - 0.15, 0), 2), round(last["end"] + 0.35, 2)
+
+
+def snap_to_segments(segments: list[dict], start: float, end: float) -> tuple[float, float]:
+    first = next((s for s in segments if s["end"] > start), None)
+    last = next((s for s in reversed(segments) if s["start"] < end), None)
+    if first is None or last is None:
+        return start, end
     return round(max(first["start"] - 0.15, 0), 2), round(last["end"] + 0.35, 2)

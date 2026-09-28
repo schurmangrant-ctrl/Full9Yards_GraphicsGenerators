@@ -24,6 +24,7 @@ def main() -> None:
     parser.add_argument("video", type=Path, help="The full episode video file")
     parser.add_argument("--transcript", type=Path, help="An .srt or .vtt transcript of the episode. Skips the slow full transcription.")
     parser.add_argument("--ranges", type=Path, help="A text file of clips you picked, one per line: 12:30-13:45 optional title")
+    parser.add_argument("--hosts", help="Who's on this episode, left to right on screen, e.g. Grant,Noah (default: everyone in settings.json)")
     parser.add_argument("--count", type=int, default=12, help="How many candidates to ask for (default 12)")
     parser.add_argument("--no-review", action="store_true", help="Skip the review page. Renders your ranges, or every candidate Claude scored 7+.")
     parser.add_argument("--repick", action="store_true", help="Ask Claude for fresh candidates instead of reusing the last picks")
@@ -48,7 +49,11 @@ def main() -> None:
     mics = crop = None
     if switching and switching.get("mic_tracks"):
         try:
-            mics = mic_levels(video, switching["mic_tracks"], work / "mic_levels.npz")
+            on_air = [h.strip() for h in args.hosts.split(",")] if args.hosts else list(switching["mic_tracks"])
+            unknown = [h for h in on_air if h not in switching["mic_tracks"]]
+            if unknown:
+                raise SystemExit(f"No mic track set for {', '.join(unknown)} in settings.json.")
+            mics = mic_levels(video, {h: switching["mic_tracks"][h] for h in on_air}, work / "mic_levels.npz")
             crop = vertical_crops(boxes(settings, mics[0], *video_size(video)))
         except MicTracksMissing as e:
             print(f"Note: {e}")

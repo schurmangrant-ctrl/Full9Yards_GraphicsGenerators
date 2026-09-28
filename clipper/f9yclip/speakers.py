@@ -119,12 +119,21 @@ def label_segments(transcript: dict, names: list[str], levels: np.ndarray) -> No
 
 
 def boxes(settings: dict, names: list[str], frame_w: int, frame_h: int) -> dict[str, tuple[int, int, int, int]]:
-    """Each host's camera box (x, y, w, h) in the recorded frame."""
-    spec = settings.get("speaker_switching", {}).get("boxes", "thirds")
-    if spec == "thirds":
+    """Each host's camera box (x, y, w, h) in the recorded frame, left to right in `names` order.
+
+    settings["speaker_switching"]["layouts"] maps a host count ("2", "3") to either
+    "equal" (cameras side by side, full height) or a list of [x, y, w, h] boxes.
+    """
+    sw = settings.get("speaker_switching", {})
+    spec = sw.get("layouts", {}).get(str(len(names)), sw.get("boxes", "equal"))
+    if isinstance(spec, str):
         w = frame_w // len(names)
         return {name: (i * w, 0, w, frame_h) for i, name in enumerate(names)}
-    return {name: tuple(spec[name]) for name in names}
+    if isinstance(spec, dict):
+        return {name: tuple(spec[name]) for name in names}
+    if len(spec) != len(names):
+        raise SystemExit(f"The {len(names)}-host layout in settings.json lists {len(spec)} boxes.")
+    return {name: tuple(box) for name, box in zip(names, spec)}
 
 
 def vertical_crops(box_map: dict, aspect: float = 9 / 16) -> tuple[int, int, dict[str, tuple[int, int]]]:

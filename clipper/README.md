@@ -45,11 +45,14 @@ Every clip comes out 1080×1920 with:
 3. `settings.json` already says Grant = 2, Noah = 3, Caden = 4. Change it if
    you set the tracks up differently.
 
-**Camera boxes.** `"boxes": "thirds"` means the recording is three cameras side
-by side, left to right in the order of `hosts`. If you record the YouTube
-layout instead, give each host's box in pixels of the recorded frame:
-`"boxes": {"Grant": [x, y, width, height], "Noah": [...], "Caden": [...]}`.
-Each clip crops the box of whoever is talking. The bigger the boxes are in
+**Who's on tonight.** Pass the hosts in the recording, left to right as they
+sit in the frame: `--hosts Grant,Noah`. Leave it off when all three are on.
+
+**Camera windows.** `"layouts"` in `settings.json` has one entry per host
+count. `"equal"` means the cameras sit side by side at full height. If you
+record the YouTube layout, list each window in pixels of the recorded frame,
+left to right: `"2": [[x, y, width, height], [x, y, width, height]]`. Each
+clip crops the window of whoever is talking. The bigger the windows are in
 the recording, the sharper the clips look.
 
 Recordings without the separate tracks still work. Their clips use the whole

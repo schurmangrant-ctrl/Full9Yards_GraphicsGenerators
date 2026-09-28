@@ -81,7 +81,8 @@ def main():
     assert any(abs(clips[0]["start"] - (w["start"] - 0.15)) < 0.01 for w in words), clips[0]
 
     variants = [dict(clips[0], layout="blur", speaker="Grant"), dict(clips[0], layout="center", title="Crop test")]
-    outputs = render_all(video, transcript, variants, tmp / "out", {"handle": "@Full9Yards"})
+    outputs = render_all(video, transcript, variants, tmp / "out", {"handle": "@Full9Yards"}, ["2026-10-01-Wed", "2026-10-02-Thu"])
+    assert outputs[0].name.startswith("2026-10-01-Wed_01-"), outputs[0].name
     for out in outputs:
         probe = subprocess.run([ffmpeg_exe(), "-hide_banner", "-i", str(out)], capture_output=True, text=True).stderr
         assert "1080x1920" in probe, probe

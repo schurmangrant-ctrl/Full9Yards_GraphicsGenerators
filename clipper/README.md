@@ -31,6 +31,20 @@ Everything lands in a folder next to the episode called `<episode>_clips/`.
 4. Edit `settings.json`: add every host's name (these show up as host tag
    choices), and set your real handle and end card line.
 
+## Fitting it into a recording night
+
+1. **Recording night, before bed:** start the slow part and let it run overnight.
+   ```
+   python -m f9yclip "/path/to/episode.mp4" --prep
+   ```
+   This transcribes and asks Claude for candidates, then stops.
+2. **Next batch night, about 20 minutes:** run the same command without
+   `--prep`. It skips straight to the review page. Keep the good clips, render,
+   then schedule them from the output folder: TikTok Studio on desktop (up to 10 days
+   ahead), Meta Business Suite for Instagram, and YouTube Studio for Shorts.
+   Every file name starts with its suggested post date, one clip a day starting
+   tomorrow. Change that with `--first-post 2026-10-06` or `--per-day 2`.
+
 ## Each episode
 
 ```

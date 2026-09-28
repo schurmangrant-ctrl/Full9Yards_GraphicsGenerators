@@ -33,7 +33,9 @@ def ffmpeg_exe() -> str:
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
-def render_all(video: Path, transcript: dict, clips: list[dict], out_dir: Path, settings: dict) -> list[Path]:
+def render_all(
+    video: Path, transcript: dict, clips: list[dict], out_dir: Path, settings: dict, post_dates: list[str] | None = None
+) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     build = out_dir / ".build"
     build.mkdir(exist_ok=True)
@@ -45,7 +47,9 @@ def render_all(video: Path, transcript: dict, clips: list[dict], out_dir: Path, 
     outputs = []
     posts = ["# Clips ready to post\n"]
     for n, clip in enumerate(clips, 1):
-        name = f"{n:02d}-{slug(clip['title'])}"
+        post_on = post_dates[n - 1] if post_dates else None
+        # Prefixing the post date keeps the folder sorted in posting order.
+        name = f"{post_on}_{n:02d}-{slug(clip['title'])}" if post_on else f"{n:02d}-{slug(clip['title'])}"
         print(f"Rendering {name} ({clip['end'] - clip['start']:.0f}s)...")
         ass_name = f"{name}.ass"
         (build / ass_name).write_text(clip_ass(clip, words, settings))
@@ -53,7 +57,8 @@ def render_all(video: Path, transcript: dict, clips: list[dict], out_dir: Path, 
         render_one(video.resolve(), clip, build, ass_name, target.resolve())
         outputs.append(target)
         tags = " ".join("#" + t.lstrip("#") for t in clip.get("hashtags", []))
-        posts.append(f"## {name}\n\n{clip.get('caption', '')}\n\n{tags}\n")
+        when = f"Post on: {post_on}\n\n" if post_on else ""
+        posts.append(f"## {name}\n\n{when}{clip.get('caption', '')}\n\n{tags}\n")
 
     (out_dir / "captions.md").write_text("\n".join(posts))
     shutil.rmtree(build, ignore_errors=True)

@@ -34,9 +34,10 @@ Every clip comes out 1080×1920 with:
 **Put each mic on its own track** so the camera can follow whoever is talking:
 
 1. Settings → Output → set Output Mode to **Advanced**. On the Recording tab,
-   tick audio tracks **1, 2, 3 and 4**, and record as **MKV**. MKV keeps every
-   track, and File → Remux Recordings turns it into an MP4 afterwards if you
-   need one.
+   tick audio tracks **1, 2, 3 and 4**, and record as **MKV**, which is safe if
+   OBS crashes. Afterwards, File → Remux Recordings makes an MP4 with every
+   track kept. Give the clip tool that MP4, because the review page plays MP4
+   in any browser.
 2. In the Audio Mixer, open the gear → **Advanced Audio Properties**. Tick
    track 1 for every source, since that's the full mix YouTube gets. Then tick
    track 2 only for Grant's mic, track 3 only for Noah's, and track 4 only for

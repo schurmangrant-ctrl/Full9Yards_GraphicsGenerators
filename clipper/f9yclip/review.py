@@ -1,0 +1,95 @@
+"""A small local web page for approving and trimming clip candidates.
+
+Runs on http://127.0.0.1:8765 and blocks until you press "Render" on the
+page, then returns the clips you kept, with your edits.
+"""
+
+import json
+import mimetypes
+import threading
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+PAGE = Path(__file__).parent / "review.html"
+
+
+def review(video: Path, transcript: dict, clips: list[dict], settings: dict, port: int = 8765) -> list[dict]:
+    result: dict = {}
+    done = threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):
+            if self.path == "/":
+                self._send(200, PAGE.read_bytes(), "text/html; charset=utf-8")
+            elif self.path == "/data":
+                payload = {
+                    "clips": clips,
+                    "segments": [{"start": s["start"], "end": s["end"], "text": s["text"]} for s in transcript["segments"]],
+                    "hosts": settings.get("hosts", []),
+                    "duration": transcript["duration"],
+                    "episode": video.name,
+                }
+                self._send(200, json.dumps(payload).encode(), "application/json")
+            elif self.path == "/video":
+                self._send_video()
+            else:
+                self._send(404, b"not found", "text/plain")
+
+        def do_POST(self):
+            if self.path != "/save":
+                return self._send(404, b"not found", "text/plain")
+            body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            result["clips"] = json.loads(body)["clips"]
+            self._send(200, b'{"ok": true}', "application/json")
+            done.set()
+
+        def _send(self, code, body, ctype):
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _send_video(self):
+            # Browsers need HTTP range requests to seek inside a long video.
+            size = video.stat().st_size
+            ctype = mimetypes.guess_type(video.name)[0] or "video/mp4"
+            start, end = 0, size - 1
+            rng = self.headers.get("Range")
+            if rng and rng.startswith("bytes="):
+                a, _, b = rng[6:].partition("-")
+                start = int(a) if a else 0
+                end = min(int(b), size - 1) if b else min(start + 8 * 1024 * 1024, size - 1)
+                self.send_response(206)
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            else:
+                self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(end - start + 1))
+            self.end_headers()
+            with open(video, "rb") as f:
+                f.seek(start)
+                remaining = end - start + 1
+                try:
+                    while remaining > 0:
+                        chunk = f.read(min(1024 * 1024, remaining))
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+                        remaining -= len(chunk)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{port}/"
+    print(f"\nReview your clips at {url}  (press Render on the page when you're done)")
+    webbrowser.open(url)
+    done.wait()
+    server.shutdown()
+    return result["clips"]

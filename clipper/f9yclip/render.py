@@ -1,9 +1,9 @@
 """Cut approved clips into vertical 9:16 videos.
 
 Each clip can open on its hook line, then play the full take, then a
-2-second F9Y end card. All text (captions, title, host tag, end card) is an
-ASS subtitle file drawn by ffmpeg's libass filter; team logos are overlaid
-when the clip opens and when a team first comes up.
+2-second F9Y end card. All text (captions, title, end card) is an ASS
+subtitle file drawn by ffmpeg's libass filter; score and player cards slide
+in when a finished game or a player comes up.
 """
 
 import re
@@ -15,8 +15,6 @@ ASSETS = Path(__file__).parent / "assets"
 FONT = "Barlow Condensed Black"
 W, H, FPS = 1080, 1920, 30
 END_CARD_SECONDS = 2.0
-LOGO_SIZE = 260
-LOGO_Y = 350
 TITLE_SECONDS = 3.0
 CARD_SECONDS = 3.2
 CARD_SLIDE = 0.3
@@ -52,9 +50,6 @@ def render_all(
     ("game_path", starting "game_from" seconds in). "voice" is "normal",
     "pitch" (higher voice, same speed) or "fast" (sped up, voice higher too).
     """
-    from .pick import TEAMS
-
-    logo_files = {t["name"]: t["logo"] for t in TEAMS}
     out_dir.mkdir(parents=True, exist_ok=True)
     build = out_dir / ".build"
     build.mkdir(exist_ok=True)
@@ -75,22 +70,16 @@ def render_all(
         hook = hook_range(clip)
         hook_len = hook[1] - hook[0] if hook else 0.0
         cards = card_appearances(clip, hook_len)
-        # A team's logo on a later mention would sit under a card, so skip it then.
-        appearances = [(t, a, b) for t, a, b in logo_appearances(clip, hook_len)
-                       if a == 0.0 or not any(a < ce and b > cs for _, cs, ce in cards)]
         card_files = []
         for k, (card, cs, ce) in enumerate(cards):
             png = f"card{n:02d}_{k}.png"
             make_card(card, build, png)
             card_files.append((png, cs, ce))
-        for team, _, _ in appearances:
-            shutil.copy(ASSETS / "logos" / logo_files[team], build / logo_files[team])
 
         ass_name = f"clip{n:02d}.ass"
         (build / ass_name).write_text(clip_ass(clip, hook, settings))
         target = (out_dir / f"{name}.mp4").resolve()
-        render_one(video.resolve(), clip, hook, [(logo_files[t], a, b) for t, a, b in appearances], build, ass_name, target,
-                   crop, split_crop, settings, card_files)
+        render_one(video.resolve(), clip, hook, build, ass_name, target, crop, split_crop, settings, card_files)
         outputs.append(target)
 
         tags = " ".join("#" + t.lstrip("#") for t in clip.get("hashtags", []))
@@ -111,24 +100,6 @@ def hook_range(clip: dict) -> tuple[float, float] | None:
     return None
 
 
-def logo_appearances(clip: dict, hook_len: float) -> list[tuple[str, float, float]]:
-    """(team, from, to) on the output timeline: the clip's teams as it opens, then each first mention."""
-    teams = clip.get("teams", [])
-    total = hook_len + clip["end"] - clip["start"]
-    shown = []
-    opening = []
-    for t in teams:
-        if t["name"] not in opening and len(opening) < 2:
-            opening.append(t["name"])
-    for name in opening:
-        shown.append((name, 0.0, min(3.5, total)))
-    for t in teams:
-        at = hook_len + t["at"] - clip["start"]
-        if at > 5 and at + 0.5 < total:
-            shown.append((t["name"], at, min(at + 2.5, total)))
-    return shown
-
-
 def card_appearances(clip: dict, hook_len: float) -> list[tuple[dict, float, float]]:
     """(card, from, to) on the output timeline, one at a time, after the title is gone."""
     total = hook_len + clip["end"] - clip["start"]
@@ -146,36 +117,38 @@ def card_appearances(clip: dict, hook_len: float) -> list[tuple[dict, float, flo
 
 
 def make_card(card: dict, build: Path, png: str) -> None:
-    """Draw one branded card as a PNG in the build folder."""
+    """Draw one card as a PNG in the build folder, in the F9Y style: black body,
+    green bar down the left, a small green "FULL 9 YARDS / ..." line, cream type."""
     images, events = [], []
+    text = lambda x, y, an, size, color, s: events.append(
+        dialogue("Card", 0, 5, f"{{\\an{an}\\pos({x},{y})\\fs{size}\\c{color}}}{ass_text(s)}"))
     if card["kind"] == "score":
-        cw, ch = 920, 220
-        events.append(dialogue("Card", 0, 5, f"{{\\an8\\pos({cw // 2},12)\\fs38\\c{GOLD}}}{ass_text(card['status'])}"))
-        dim = "&H00858A8A"
-        for k, (sd, lx, sx) in enumerate(zip(card["sides"], (30, cw - 180), (330, cw - 330))):
-            color = WHITE if sd["winner"] or not any(o["winner"] for o in card["sides"]) else dim
-            events.append(dialogue("Card", 0, 5, f"{{\\an5\\pos({sx},124)\\fs130\\c{color}}}{sd['score']}"))
-            events.append(dialogue("Card", 0, 5, plate(lx - 10, 26, 170, 170)))
+        cw, ch = 920, 240
+        text(48, 20, 7, 34, GREEN, f"FULL 9 YARDS / {card['status']}")
+        dim = "&H00888E8C"
+        for sd, lx, sx in zip(card["sides"], (60, cw - 190), (345, cw - 345)):
+            color = CREAM if sd["winner"] or not any(o["winner"] for o in card["sides"]) else dim
+            text(sx, 142, 5, 130, color, sd["score"])
             if sd.get("logo") and (ASSETS / "logos" / sd["logo"]).exists():
-                images.append((ASSETS / "logos" / sd["logo"], lx + 5, 41, 140, 140))
+                images.append((ASSETS / "logos" / sd["logo"], lx, 72, 130, 130))
             else:
-                events.append(dialogue("Card", 0, 5, f"{{\\an5\\pos({lx + 75},111)\\fs70\\c{BLACK}}}{ass_text(sd['abbr'])}"))
-        events.append(dialogue("Card", 0, 5, f"{{\\an5\\pos({cw // 2},124)\\fs90\\c{GOLD}}}-"))
+                text(lx + 65, 137, 5, 64, CREAM, sd["abbr"])
+        text(cw // 2 + 8, 142, 5, 90, GREEN, "-")
     else:
-        cw, ch = 880, 240
-        events.append(dialogue("Card", 0, 5, f"{{\\an7\\pos(0,0)\\p1\\c{GREEN}}}m 0 0 l 240 0 l 240 {ch} l 0 {ch}"))
+        cw, ch = 900, 240
+        events.append(dialogue("Card", 0, 5, f"{{\\an7\\pos(0,0)\\p1\\c{GREEN}}}m 16 0 l 256 0 l 256 {ch} l 16 {ch}"))
         if card.get("headshot") and Path(card["headshot"]).exists():
-            images.append((Path(card["headshot"]), 0, 0, 240, ch))
+            images.append((Path(card["headshot"]), 16, 0, 240, ch))
         name = card["name"].upper()
-        size = 80 if len(name) <= 15 else 64 if len(name) <= 20 else 52
+        size = 84 if len(name) <= 14 else 68 if len(name) <= 19 else 54
         team = card["team"].split()[-1] if card["logo"].startswith("nfl-") else card["team"]
         sub = " · ".join(x for x in (card.get("position", ""), team.upper()) if x)
-        events.append(dialogue("Card", 0, 5, f"{{\\an4\\pos(268,92)\\fs{size}}}{ass_text(name)}"))
-        events.append(dialogue("Card", 0, 5, f"{{\\an4\\pos(270,172)\\fs44\\c{GOLD}}}{ass_text(sub)}"))
+        text(284, 22, 7, 34, GREEN, "FULL 9 YARDS / PLAYER")
+        text(282, 122, 4, size, CREAM, name)
+        text(284, 192, 4, 40, CREAM, sub)
         if (ASSETS / "logos" / card["logo"]).exists():
-            events.append(dialogue("Card", 0, 5, plate(cw - 150, 55, 130, 130)))
-            images.append((ASSETS / "logos" / card["logo"], cw - 140, 65, 110, 110))
-    events.append(dialogue("Card", 0, 5, f"{{\\an7\\pos(0,0)\\p1\\c{GOLD}}}m 0 {ch - 8} l {cw} {ch - 8} l {cw} {ch} l 0 {ch}"))
+            images.append((ASSETS / "logos" / card["logo"], cw - 140, 70, 110, 110))
+    events.append(dialogue("Card", 0, 5, f"{{\\an7\\pos(0,0)\\p1\\c{GREEN}}}m 0 0 l 16 0 l 16 {ch} l 0 {ch}"))
 
     ass_name = png.replace(".png", ".ass")
     (build / ass_name).write_text(ass_file([style("Card", 60, WHITE, BLACK, outline=0, shadow=0, align=7, margin_v=0)],
@@ -196,17 +169,12 @@ def make_card(card: dict, build: Path, png: str) -> None:
     )
 
 
-def plate(x: int, y: int, w: int, h: int) -> str:
-    """A cream tile behind a team logo, so dark logos stay visible on the black card."""
-    return f"{{\\an7\\pos(0,0)\\p1\\c{CREAM}}}m {x} {y} l {x + w} {y} l {x + w} {y + h} l {x} {y + h}"
-
-
 def ass_text(s: str) -> str:
     return str(s).replace("{", "(").replace("}", ")").replace("\\", "/")
 
 
 def render_one(
-    video: Path, clip: dict, hook, logos: list[tuple[str, float, float]], build: Path, ass_name: str, target: Path,
+    video: Path, clip: dict, hook, build: Path, ass_name: str, target: Path,
     crop=None, split_crop=None, settings: dict | None = None, cards: list | None = None,
 ) -> None:
     start, end = clip["start"], clip["end"]
@@ -233,15 +201,11 @@ def render_one(
         "-loop", "1", "-t", f"{END_CARD_SECONDS}", "-i", "logo.png",
         "-f", "lavfi", "-t", f"{END_CARD_SECONDS}", "-i", "anullsrc=r=48000:cl=stereo",
     ]
-    logo_inputs = []
-    for i, (file, _, _) in enumerate(logos):
-        inputs += ["-loop", "1", "-t", f"{body_len:.2f}", "-i", file]
-        logo_inputs.append(silence + 1 + i)
     card_inputs = []
     for i, (file, _, _) in enumerate(cards or []):
         inputs += ["-loop", "1", "-t", f"{body_len:.2f}", "-i", file]
-        card_inputs.append(silence + 1 + len(logos) + i)
-    game_input = silence + 1 + len(logos) + len(cards or [])
+        card_inputs.append(silence + 1 + i)
+    game_input = silence + 1 + len(cards or [])
     if game:
         # Loops if the footage is shorter than the clip; its own audio is dropped.
         inputs += ["-stream_loop", "-1", "-ss", f"{float(clip.get('game_from') or 0):.2f}", "-t", f"{body_len:.2f}", "-i", str(game)]
@@ -261,17 +225,6 @@ def render_one(
                   f"crop={W}:{H - SPLIT_H},{norm_v}[gv]", "[tv][gv]vstack=inputs=2[bv0]"]
 
     last = "bv0"
-    openers = [i for i, (_, a, _) in enumerate(logos) if a == 0.0]
-    for i, (_, a, b) in enumerate(logos):
-        if i in openers and len(openers) == 2:
-            x = f"{W // 2 - LOGO_SIZE - 20}" if i == openers[0] else f"{W // 2 + 20}"
-        else:
-            x = f"{(W - LOGO_SIZE) // 2}"
-        parts.append(f"[{logo_inputs[i]}:v]scale={LOGO_SIZE}:{LOGO_SIZE}:force_original_aspect_ratio=decrease[lg{i}]")
-        # With game footage, logos go over the game so they don't cover the speaker's face.
-        logo_y = SPLIT_H + 120 if game else LOGO_Y
-        parts.append(f"[{last}][lg{i}]overlay=x={x}+({LOGO_SIZE}-w)/2:y={logo_y}:enable='between(t,{a:.2f},{b:.2f})'[lo{i}]")
-        last = f"lo{i}"
     # Cards slide in from the left, hold, and slide out to the right.
     card_y = SPLIT_H + 100 if game else CARD_Y
     for i, (_, a, b) in enumerate(cards or []):

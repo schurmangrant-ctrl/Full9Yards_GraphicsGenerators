@@ -158,8 +158,6 @@ function draw() {
         <input type="number" step="0.1" data-f="hook_start" value="${(c.hook_start ?? 0).toFixed(1)}" aria-label="Hook start seconds">
         <span class="small">to</span>
         <input type="number" step="0.1" data-f="hook_end" value="${(c.hook_end ?? 0).toFixed(1)}" aria-label="Hook end seconds">
-        <span class="small">Teams</span>
-        <input type="text" data-f="teams" value="${esc((c.teams || []).map(t => t.name).join(', '))}" placeholder="none" aria-label="Teams, comma separated" style="flex:1;min-width:160px">
       </div>
       <div class="row">
         <span class="small">Voice</span>

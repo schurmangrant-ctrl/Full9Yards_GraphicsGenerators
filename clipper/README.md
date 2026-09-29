@@ -7,9 +7,6 @@ Every clip comes out 1080×1920 with:
 
 - **A hook opener.** The punchiest 2 to 6 second line plays first, then the
   whole take.
-- **Team logos.** The teams the clip is about appear under the title as it
-  opens, and again when a team first comes up later. All 32 NFL teams and the
-  FBS teams from f9ytools are included.
 - **Score and player pop-ups.** When a finished game comes up, its final
   score slides in; when a player is named, a card with their headshot,
   position and team. Claude spots the mentions; the scores and headshots
@@ -127,7 +124,6 @@ Play each candidate, nudge the start or end, tick **Keep**, then press
 **Render kept clips**. Per clip you can also:
 
 - turn the hook opener off, or move it,
-- edit the team list (comma separated, names as in `f9yclip/teams.json`),
 - set the framing:
   - **Follow the speaker** (default when mic tracks are set up) cuts to
     whoever is talking.

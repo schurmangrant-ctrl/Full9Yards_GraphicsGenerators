@@ -222,10 +222,16 @@ def clip_ass(clip: dict, hook, settings: dict) -> str:
     for s0, s1, placed_at in stretches:
         seg_words = [w for w in words if w["start"] >= s0 - 0.05 and w["end"] <= s1 + 0.05]
         limit = placed_at + (s1 - s0)
-        for chunk in caption_chunks(seg_words):
+        chunks = list(caption_chunks(seg_words))
+        for n, chunk in enumerate(chunks):
+            # Linger a beat after the last word, but never overlap the next line,
+            # or both show at once stacked in the wrong order.
+            last = chunk[-1]["end"] + 0.25
+            if n + 1 < len(chunks):
+                last = min(last, chunks[n + 1][0]["start"])
             for i, w in enumerate(chunk):
                 t0 = placed_at + w["start"] - s0
-                t1 = placed_at + (chunk[i + 1]["start"] if i + 1 < len(chunk) else chunk[-1]["end"] + 0.25) - s0
+                t1 = placed_at + (chunk[i + 1]["start"] if i + 1 < len(chunk) else last) - s0
                 text = " ".join(
                     (f"{{\\c{GOLD}}}{clean(x['word'])}{{\\c{WHITE}}}" if j == i else clean(x["word"]))
                     for j, x in enumerate(chunk)

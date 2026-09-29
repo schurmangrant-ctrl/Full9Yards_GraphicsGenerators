@@ -17,6 +17,7 @@ W, H, FPS = 1080, 1920, 30
 END_CARD_SECONDS = 2.0
 LOGO_SIZE = 260
 LOGO_Y = 350
+SPLIT_H = 960        # with game footage: speaker on the top half, game on the bottom
 
 # ASS colors are &HAABBGGRR. Brand: black #101311, green #3F7954, gold #D4AF37.
 WHITE = "&H00FFFFFF"
@@ -35,12 +36,16 @@ def ffmpeg_exe() -> str:
 
 
 def render_all(
-    video: Path, clips: list[dict], out_dir: Path, settings: dict, post_dates: list[str] | None = None, crop: tuple | None = None
+    video: Path, clips: list[dict], out_dir: Path, settings: dict, post_dates: list[str] | None = None,
+    crop: tuple | None = None, split_crop: tuple | None = None,
 ) -> list[Path]:
     """Render each clip. Every clip must carry its own "words" (absolute word times).
 
     crop is (width, height, {host: (x, y)}) for the "speaker" layout, which also
     needs "shots" (and "hook_shots" when opening on the hook) on each clip.
+    split_crop is the same at 9:8, for the top half when a clip has game footage
+    ("game_path", starting "game_from" seconds in). "voice" is "normal",
+    "pitch" (higher voice, same speed) or "fast" (sped up, voice higher too).
     """
     from .pick import TEAMS
 
@@ -71,7 +76,8 @@ def render_all(
         ass_name = f"clip{n:02d}.ass"
         (build / ass_name).write_text(clip_ass(clip, hook, settings))
         target = (out_dir / f"{name}.mp4").resolve()
-        render_one(video.resolve(), clip, hook, [(logo_files[t], a, b) for t, a, b in appearances], build, ass_name, target, crop)
+        render_one(video.resolve(), clip, hook, [(logo_files[t], a, b) for t, a, b in appearances], build, ass_name, target,
+                   crop, split_crop, settings)
         outputs.append(target)
 
         tags = " ".join("#" + t.lstrip("#") for t in clip.get("hashtags", []))
@@ -111,13 +117,22 @@ def logo_appearances(clip: dict, hook_len: float) -> list[tuple[str, float, floa
 
 
 def render_one(
-    video: Path, clip: dict, hook, logos: list[tuple[str, float, float]], build: Path, ass_name: str, target: Path, crop=None
+    video: Path, clip: dict, hook, logos: list[tuple[str, float, float]], build: Path, ass_name: str, target: Path,
+    crop=None, split_crop=None, settings: dict | None = None,
 ) -> None:
     start, end = clip["start"], clip["end"]
     layout = clip.get("layout", "blur")
     if layout == "speaker" and not (crop and clip.get("shots")):
         layout = "blur"
     body_len = (hook[1] - hook[0] if hook else 0) + end - start
+    game = clip.get("game_path")
+    size = (W, SPLIT_H) if game else (W, H)
+    if game:
+        crop = split_crop
+        if layout == "speaker" and not crop:
+            layout = "center"
+        if layout == "blur":
+            layout = "center"
 
     inputs = ["-ss", f"{start:.2f}", "-t", f"{end - start:.2f}", "-i", str(video)]
     if hook:
@@ -133,15 +148,24 @@ def render_one(
     for i, (file, _, _) in enumerate(logos):
         inputs += ["-loop", "1", "-t", f"{body_len:.2f}", "-i", file]
         logo_inputs.append(silence + 1 + i)
+    game_input = silence + 1 + len(logos)
+    if game:
+        # Loops if the footage is shorter than the clip; its own audio is dropped.
+        inputs += ["-stream_loop", "-1", "-ss", f"{float(clip.get('game_from') or 0):.2f}", "-t", f"{body_len:.2f}", "-i", str(game)]
 
     norm_v = f"fps={FPS},setsar=1,format=yuv420p"
     norm_a = "aformat=sample_rates=48000:channel_layouts=stereo"
-    parts = [f"{frame(0, layout, clip.get('shots'), crop)},{norm_v}[mv]", f"[0:a:0]{norm_a}[ma]"]
+    parts = [f"{frame(0, layout, clip.get('shots'), crop, size)},{norm_v}[mv]", f"[0:a:0]{norm_a}[ma]"]
+    top = "tv" if game else "bv0"
     if hook:
-        hook_layout = layout if layout != "speaker" or clip.get("hook_shots") else "blur"
-        parts += [f"{frame(1, hook_layout, clip.get('hook_shots'), crop)},{norm_v}[hv]", f"[1:a:0]{norm_a}[ha]", "[hv][ha][mv][ma]concat=n=2:v=1:a=1[bv0][ba]"]
+        hook_layout = layout if layout != "speaker" or clip.get("hook_shots") else ("center" if game else "blur")
+        parts += [f"{frame(1, hook_layout, clip.get('hook_shots'), crop, size)},{norm_v}[hv]", f"[1:a:0]{norm_a}[ha]",
+                  f"[hv][ha][mv][ma]concat=n=2:v=1:a=1[{top}][ba]"]
     else:
-        parts += ["[mv]null[bv0]", "[ma]anull[ba]"]
+        parts += [f"[mv]null[{top}]", "[ma]anull[ba]"]
+    if game:
+        parts += [f"[{game_input}:v]scale={W}:{H - SPLIT_H}:force_original_aspect_ratio=increase,"
+                  f"crop={W}:{H - SPLIT_H},{norm_v}[gv]", "[tv][gv]vstack=inputs=2[bv0]"]
 
     last = "bv0"
     openers = [i for i, (_, a, _) in enumerate(logos) if a == 0.0]
@@ -151,15 +175,25 @@ def render_one(
         else:
             x = f"{(W - LOGO_SIZE) // 2}"
         parts.append(f"[{logo_inputs[i]}:v]scale={LOGO_SIZE}:{LOGO_SIZE}:force_original_aspect_ratio=decrease[lg{i}]")
-        parts.append(f"[{last}][lg{i}]overlay=x={x}+({LOGO_SIZE}-w)/2:y={LOGO_Y}:enable='between(t,{a:.2f},{b:.2f})'[lo{i}]")
+        # With game footage, logos go over the game so they don't cover the speaker's face.
+        logo_y = SPLIT_H + 120 if game else LOGO_Y
+        parts.append(f"[{last}][lg{i}]overlay=x={x}+({LOGO_SIZE}-w)/2:y={logo_y}:enable='between(t,{a:.2f},{b:.2f})'[lo{i}]")
         last = f"lo{i}"
-    parts.append(f"[{last}]ass={ass_name}:fontsdir=.[cv]")
+    parts.append(f"[{last}]ass={ass_name}:fontsdir=.[cv0]")
+    boost = float((settings or {}).get("voice_boost", 1.2))
+    voice = clip.get("voice", "normal")
+    if voice == "fast":
+        parts += [f"[cv0]setpts=PTS/{boost}[cv]", f"[ba]asetrate={48000 * boost:.0f},aresample=48000[ba2]"]
+    elif voice == "pitch":
+        parts += ["[cv0]null[cv]", f"[ba]asetrate={48000 * boost:.0f},aresample=48000,atempo={1 / boost:.5f}[ba2]"]
+    else:
+        parts += ["[cv0]null[cv]", "[ba]anull[ba2]"]
 
     parts += [
         f"[{mark}:v]scale=420:-1[mark]",
         f"[{card}:v][mark]overlay=(W-w)/2:(H-h)/2-160,ass=endcard.ass:fontsdir=.,{norm_v}[ev]",
         f"[{silence}:a]{norm_a}[ea]",
-        "[cv][ba][ev][ea]concat=n=2:v=1:a=1[v][a]",
+        "[cv][ba2][ev][ea]concat=n=2:v=1:a=1[v][a]",
     ]
     cmd = [
         ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", *inputs,
@@ -174,7 +208,8 @@ def render_one(
     subprocess.run(cmd, cwd=build, check=True)
 
 
-def frame(i: int, layout: str, shots=None, crop=None) -> str:
+def frame(i: int, layout: str, shots=None, crop=None, size=(W, H)) -> str:
+    ow, oh = size
     if layout == "speaker":
         cw, ch, spots = crop
         x = y = None
@@ -182,7 +217,7 @@ def frame(i: int, layout: str, shots=None, crop=None) -> str:
             sx, sy = spots[host]
             x = f"{sx}" if x is None else f"if(lt(t\\,{t1:.2f})\\,{sx}\\,{x})"
             y = f"{sy}" if y is None else f"if(lt(t\\,{t1:.2f})\\,{sy}\\,{y})"
-        return f"[{i}:v]crop=w={cw}:h={ch}:x={x}:y={y},scale={W}:{H}"
+        return f"[{i}:v]crop=w={cw}:h={ch}:x={x}:y={y},scale={ow}:{oh}"
     if layout == "blur":
         return (
             f"[{i}:v]split[a{i}][b{i}];"
@@ -191,7 +226,7 @@ def frame(i: int, layout: str, shots=None, crop=None) -> str:
             f"[bg{i}][fg{i}]overlay=(W-w)/2:(H-h)/2"
         )
     x = {"left": "0", "center": "(iw-ow)/2", "right": "iw-ow"}[layout]
-    return f"[{i}:v]crop=ih*9/16:ih:{x}:0,scale={W}:{H}"
+    return f"[{i}:v]crop=ih*{ow}/{oh}:ih:{x}:0,scale={ow}:{oh}"
 
 
 def clip_ass(clip: dict, hook, settings: dict) -> str:
@@ -199,6 +234,7 @@ def clip_ass(clip: dict, hook, settings: dict) -> str:
     hook_len = hook[1] - hook[0] if hook else 0.0
     total = hook_len + end - start
     words = clip.get("words", [])
+    split = bool(clip.get("game_path"))
     events = []
 
     title = clip.get("title", "").strip().upper()
@@ -240,9 +276,10 @@ def clip_ass(clip: dict, hook, settings: dict) -> str:
 
     return ass_file(
         [
-            style("Caption", 96, WHITE, BLACK, outline=7, shadow=0, align=2, margin_v=560),
+            # With game footage the captions sit on the seam between speaker and game.
+            style("Caption", 96, WHITE, BLACK, outline=7, shadow=0, align=2, margin_v=900 if split else 560),
             style("Title", 74, WHITE, BLACK, outline=18, shadow=0, align=8, margin_v=170, box=True),
-            style("Name", 52, WHITE, GREEN, outline=14, shadow=0, align=2, margin_v=420, box=True),
+            style("Name", 52, WHITE, GREEN, outline=14, shadow=0, align=2, margin_v=1060 if split else 420, box=True),
         ],
         events,
     )

@@ -132,6 +132,24 @@ Play each candidate, nudge the start or end, tick **Keep**, then press
   - **Crop left / center / right** is a tight vertical crop of one third of the
     frame, for when one host is talking and sits on that side.
 
+### Game footage under the speaker
+
+Put game clips you've downloaded in a `game_footage` folder next to the
+episode file. Each card then has a **Game footage** choice. Pick a clip and
+the video splits: whoever is talking on the top half, the game playing on the
+bottom half (muted, looping if it's shorter than the clip), with the captions
+on the seam. **From** sets how many seconds into the game clip to start.
+
+League footage is copyrighted, and TikTok and YouTube can mute or remove
+clips that use it, so keep the game clip short and your take the main thing.
+
+### Voice
+
+**Pitched up** raises the voice without changing speed. **Sped up** plays
+the whole clip faster, which raises the voice too. `voice_boost` in
+`settings.json` sets how strong both are (1.2 by default, a bit over three
+semitones and 20% faster).
+
 ## Scheduling the week
 
 Every file name starts with its suggested post date, one clip a day starting

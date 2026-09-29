@@ -100,7 +100,7 @@ def main():
     )
     patches = [
         mock.patch.object(cli, "words_for_range", side_effect=fake_words_for_range),
-        mock.patch.object(cli, "review", side_effect=lambda v, t, clips, s, port, cameras=None: [dict(c, keep=True) for c in clips if (c.get("score") or 9) >= 7]),
+        mock.patch.object(cli, "review", side_effect=lambda v, t, clips, s, port, cameras=None, games=None: [dict(c, keep=True) for c in clips if (c.get("score") or 9) >= 7]),
     ]
     for p in patches:
         p.start()
@@ -200,6 +200,33 @@ def main():
     subprocess.run([ffmpeg_exe(), "-loglevel", "error", "-y", "-ss", str(hook_len + 4.5), "-i", str(out3),
                     "-frames:v", "1", str(tmp / "speaker.png")], check=True)
     print("mode 3 ok:", clip["shots"], "frame:", tmp / "speaker.png")
+
+    # 4. Same episode, with game footage under the speaker and the voice sped up.
+    games = tmp / "game_footage"
+    games.mkdir()
+    subprocess.run([ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i",
+                    "color=c=yellow:s=1280x720:d=5:r=30", "-c:v", "libx264", "-preset", "ultrafast", str(games / "td.mp4")],
+                   check=True)
+    video4 = tmp / "four.mkv"
+    video4.write_bytes(video3.read_bytes())
+    patch, client = fake_claude([
+        {"start": 2, "end": 18, "title": "x", "hook_start": 0, "hook_end": 0, "teams": [],
+         "why": "", "caption": "", "hashtags": [], "score": 8},
+    ])
+    with patch, mock.patch.object(cli, "review", side_effect=lambda v, t, clips, s, port, cameras=None, games=None:
+                                  [dict(c, keep=True, game=games[0], game_from=1, voice="fast") for c in clips]):
+        run_cli([str(video4), "--ranges", str(ranges3)])
+    out4 = next((tmp / "four_clips").glob("*.mp4"))
+    probe = subprocess.run([ffmpeg_exe(), "-hide_banner", "-i", str(out4)], capture_output=True, text=True).stderr
+    h, m, sec = probe.split("Duration: ")[1].split(",")[0].split(":")
+    assert float(sec) < 16 / 1.2 + 2.5, probe  # 16s take sped up 1.2x, plus the end card
+    for y, want in [(300, "red"), (1500, "yellow")]:
+        rgb = subprocess.run([ffmpeg_exe(), "-loglevel", "error", "-ss", "1.0", "-i", str(out4), "-frames:v", "1",
+                              "-vf", f"crop=10:10:900:{y},scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                             capture_output=True, check=True).stdout
+        got = "yellow" if rgb[0] > 150 and rgb[1] > 150 else ["red", "green", "blue"][max(range(3), key=lambda k: rgb[k])]
+        assert got == want, (y, want, list(rgb))
+    print("mode 4 ok:", out4.name)
     print("frames:", tmp / "hook.png", tmp / "opening.png")
 
 

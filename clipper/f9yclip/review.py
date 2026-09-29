@@ -16,7 +16,7 @@ PAGE = Path(__file__).parent / "review.html"
 
 
 def review(video: Path, transcript: dict, clips: list[dict], settings: dict, port: int = 8765,
-           cameras: dict | None = None) -> list[dict]:
+           cameras: dict | None = None, games: list[str] | None = None) -> list[dict]:
     """cameras, when the camera follows the speaker: {"boxes", "crop_w", "framing", "stills"}.
     Dragging a host's crop box on the page updates cameras["framing"] in place."""
     result: dict = {}
@@ -40,6 +40,7 @@ def review(video: Path, transcript: dict, clips: list[dict], settings: dict, por
                     "duration": transcript["duration"],
                     "episode": video.name,
                     "speaker_switching": bool(cameras),
+                    "games": games or [],
                     "cameras": cameras and {
                         name: {"box": box, "crop_w": cameras["crop_w"], "at": cameras["framing"].get(name, 0.5)}
                         for name, box in cameras["boxes"].items()

@@ -47,7 +47,7 @@ def main() -> None:
 
     # With each host's mic on its own track, the camera follows whoever is talking.
     switching = settings.get("speaker_switching")
-    mics = crop = cameras = None
+    mics = crop = split_crop = cameras = None
     if switching and switching.get("mic_tracks"):
         try:
             on_air = [h.strip() for h in args.hosts.split(",")] if args.hosts else list(switching["mic_tracks"])
@@ -61,6 +61,7 @@ def main() -> None:
             cameras = {"boxes": box_map, "crop_w": vertical_crops(box_map)[0], "framing": framing,
                        "stills": still_times(*mics)}
             crop = vertical_crops(box_map, framing)
+            split_crop = vertical_crops(box_map, framing, aspect=9 / 8)
         except MicTracksMissing as e:
             print(f"Note: {e}")
 
@@ -99,13 +100,20 @@ def main() -> None:
     if args.no_review:
         chosen = [c for c in candidates if c.get("keep") or (c.get("score") or 0) >= 7]
     else:
-        chosen = review(video, transcript, candidates, settings, port=args.port, cameras=cameras)
+        chosen = review(video, transcript, candidates, settings, port=args.port, cameras=cameras, games=game_files(video))
         if cameras:
             (HERE / "framing.json").write_text(json.dumps(cameras["framing"], indent=2))
             crop = vertical_crops(cameras["boxes"], cameras["framing"])
+            split_crop = vertical_crops(cameras["boxes"], cameras["framing"], aspect=9 / 8)
 
     known = {t["name"].lower(): t["name"] for t in TEAMS}
     for c in chosen:
+        if c.get("game"):
+            path = video.parent / GAME_FOLDER / c["game"]
+            if path.exists():
+                c["game_path"] = str(path.resolve())
+            else:
+                print(f"Note: can't find {path}, so {c['title']!r} renders without game footage.")
         c["teams"] = [dict(t, name=known[t["name"].lower()]) for t in c.get("teams", []) if t["name"].lower() in known]
 
     # Word times for captions: reuse the transcript's if it has them, otherwise
@@ -125,8 +133,20 @@ def main() -> None:
 
     per_day = max(args.per_day, 1)
     post_dates = [(args.first_post + timedelta(days=i // per_day)).strftime("%Y-%m-%d-%a") for i in range(len(chosen))]
-    outputs = render_all(video, chosen, work, settings, post_dates, crop)
+    outputs = render_all(video, chosen, work, settings, post_dates, crop, split_crop)
     print(f"\nDone. {len(outputs)} clips and captions.md are in {work}")
+
+
+GAME_FOLDER = "game_footage"
+VIDEO_TYPES = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
+
+
+def game_files(video: Path) -> list[str]:
+    """Downloaded game clips in the game_footage folder next to the episode."""
+    folder = video.parent / GAME_FOLDER
+    if not folder.is_dir():
+        return []
+    return sorted(f.name for f in folder.iterdir() if f.suffix.lower() in VIDEO_TYPES)
 
 
 def still_times(names: list[str], levels) -> dict[str, float]:

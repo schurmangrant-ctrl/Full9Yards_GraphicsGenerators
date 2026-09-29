@@ -245,7 +245,7 @@ def render_one(
 
     parts += [
         f"[{mark}:v]scale=420:-1[mark]",
-        f"[{card}:v][mark]overlay=(W-w)/2:(H-h)/2-160,ass=endcard.ass:fontsdir=.,{norm_v}[ev]",
+        f"[{card}:v][mark]overlay=(W-w)/2:(H-h)/2-100,ass=endcard.ass:fontsdir=.,{norm_v}[ev]",
         f"[{silence}:a]{norm_a}[ea]",
         "[cv][ba2][ev][ea]concat=n=2:v=1:a=1[v][a]",
     ]
@@ -315,15 +315,18 @@ def clip_ass(clip: dict, hook, settings: dict) -> str:
                     (f"{{\\c{GOLD}}}{clean(x['word'])}{{\\c{WHITE}}}" if j == i else clean(x["word"]))
                     for j, x in enumerate(chunk)
                 )
+                if i == 0:
+                    # Each new line pops in: starts a touch small and snaps to full size.
+                    text = "{\\fscx80\\fscy80\\t(0,100,\\fscx100\\fscy100)}" + text
                 events.append(dialogue("Caption", max(t0, placed_at), min(t1, limit), text))
 
     return ass_file(
         [
-            # Captions sit at the speaker's chest: just above the game footage when
-            # there is some, otherwise high enough to clear the app's caption and
-            # username at the bottom, and nudged left of the like/share buttons.
-            style("Caption", 96, WHITE, BLACK, outline=7, shadow=0, align=2, margin_v=990 if split else 640,
-                  margin_l=90, margin_r=190),
+            # Captions sit centered just under the speaker's chin: at the bottom of
+            # the speaker's half when there's game footage, otherwise a little
+            # below the middle, clear of the app's caption, username and buttons.
+            style("Caption", 100, WHITE, BLACK, outline=8, shadow=0, align=2, margin_v=990 if split else 760,
+                  margin_l=140, margin_r=140),
             style("Title", 74, WHITE, BLACK, outline=18, shadow=0, align=8, margin_v=170, box=True),
         ],
         events,
@@ -335,12 +338,13 @@ def end_card_ass(settings: dict) -> str:
     handle = settings.get("handle", "@Full9Yards")
     return ass_file(
         [
-            style("Big", 80, WHITE, BLACK, outline=0, shadow=0, align=5, margin_v=0),
-            style("Small", 58, GOLD, BLACK, outline=0, shadow=0, align=5, margin_v=0),
+            style("Big", 80, CREAM, BLACK, outline=0, shadow=0, align=5, margin_v=0),
+            style("Small", 62, GREEN, BLACK, outline=0, shadow=0, align=5, margin_v=0),
         ],
         [
-            dialogue("Big", 0, END_CARD_SECONDS, f"{{\\pos({W // 2},{H // 2 + 230})}}{line1}"),
-            dialogue("Small", 0, END_CARD_SECONDS, f"{{\\pos({W // 2},{H // 2 + 330})}}{handle}"),
+            # Sits right under the logo mark (420x310, centered 100px above middle).
+            dialogue("Big", 0, END_CARD_SECONDS, f"{{\\pos({W // 2},{H // 2 + 130})}}{line1}"),
+            dialogue("Small", 0, END_CARD_SECONDS, f"{{\\pos({W // 2},{H // 2 + 210})}}{handle}"),
         ],
     )
 

@@ -45,15 +45,22 @@ Every clip comes out 1080×1920 with:
 3. `settings.json` already says Grant = 2, Noah = 3, Caden = 4. Change it if
    you set the tracks up differently.
 
-**Who's on tonight.** Pass the hosts in the recording, left to right as they
-sit in the frame: `--hosts Grant,Noah`. Leave it off when all three are on.
+**Camera layout: a clean 4K grid.** Make an OBS scene with no overlay, set
+the canvas and output resolution to **3840x2160**, and place each 1080p webcam
+at full size in its own corner: Grant top left, Noah top right, Caden bottom
+left. Whoever isn't on that night leaves their corner black. Record that
+scene. Every camera keeps its full quality, the clips crop from it, and the
+YouTube version is cut from the same file.
 
-**Camera windows.** `"layouts"` in `settings.json` has one entry per host
-count. `"equal"` means the cameras sit side by side at full height. If you
-record the YouTube layout, list each window in pixels of the recorded frame,
-left to right: `"2": [[x, y, width, height], [x, y, width, height]]`. Each
-clip crops the window of whoever is talking. The bigger the windows are in
-the recording, the sharper the clips look.
+`"boxes"` in `settings.json` gives each host's corner in pixels
+(`[x, y, width, height]`), so it doesn't matter who's on. Change it if you
+seat people differently.
+
+**Who's on tonight.** Pass the hosts in the recording: `--hosts Grant,Noah`.
+Leave it off when all three are on.
+
+**Sit in the middle of your camera.** A vertical clip shows the middle third
+of each webcam's width, so anyone sitting off to one side gets cut off.
 
 Recordings without the separate tracks still work. Their clips use the whole
 shot instead of following the speaker.

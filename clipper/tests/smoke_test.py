@@ -158,19 +158,20 @@ def main():
     assert len(list((tmp / "second_clips").glob("*.mp4"))) == 2
     print("mode 2 ok")
 
-    # 3. Three cameras side by side, each host's mic on its own track: the
-    #    camera should follow whoever is loudest. Grant talks 0-6s, Noah 6-12s,
+    # 3. Three 1080p webcams in a 4K grid (Grant top left, Noah top right,
+    #    Caden bottom left), each host's mic on its own track: the camera
+    #    should follow whoever is loudest. Grant talks 0-6s, Noah 6-12s,
     #    Caden 12-20s; each mic also hears the others faintly.
     video3 = tmp / "three.mkv"
     loud = {2: "lt(t,6)", 3: "between(t,6,12)", 4: "gte(t,12)"}
     cmd = [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y",
-           "-f", "lavfi", "-i", "color=c=red:s=640x1080:d=20:r=30",
-           "-f", "lavfi", "-i", "color=c=lime:s=640x1080:d=20:r=30",
-           "-f", "lavfi", "-i", "color=c=blue:s=640x1080:d=20:r=30",
+           "-f", "lavfi", "-i", "color=c=red:s=1920x1080:d=20:r=30",
+           "-f", "lavfi", "-i", "color=c=lime:s=1920x1080:d=20:r=30",
+           "-f", "lavfi", "-i", "color=c=blue:s=1920x1080:d=20:r=30",
            "-f", "lavfi", "-i", "sine=frequency=300:d=20"]
     for track in (2, 3, 4):
         cmd += ["-f", "lavfi", "-i", f"sine=frequency={100 * track + 200}:d=20"]
-    graph = "[0:v][1:v][2:v]hstack=inputs=3[v];" + ";".join(
+    graph = "[0:v][1:v][2:v][2:v]xstack=inputs=4:layout=0_0|w0_0|0_h0|w0_h0:fill=black,drawbox=x=1920:y=1080:w=1920:h=1080:c=black:t=fill[v];" + ";".join(
         f"[{i + 2}:a]volume='if({loud[i]},1,0.05)':eval=frame[a{i}]" for i in (2, 3, 4))
     cmd += ["-filter_complex", graph, "-map", "[v]", "-map", "3:a", "-map", "[a2]", "-map", "[a3]", "-map", "[a4]",
             "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", str(video3)]

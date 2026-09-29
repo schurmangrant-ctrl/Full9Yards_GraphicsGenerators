@@ -121,8 +121,10 @@ def label_segments(transcript: dict, names: list[str], levels: np.ndarray) -> No
 def boxes(settings: dict, names: list[str], frame_w: int, frame_h: int) -> dict[str, tuple[int, int, int, int]]:
     """Each host's camera box (x, y, w, h) in the recorded frame, left to right in `names` order.
 
-    settings["speaker_switching"]["layouts"] maps a host count ("2", "3") to either
-    "equal" (cameras side by side, full height) or a list of [x, y, w, h] boxes.
+    settings["speaker_switching"]["boxes"] is either "equal" (cameras side by side,
+    full height) or each host's fixed seat: {"Grant": [x, y, w, h], ...}. An
+    optional "layouts" entry per host count ("2", "3") overrides it with a list
+    of boxes, left to right.
     """
     sw = settings.get("speaker_switching", {})
     spec = sw.get("layouts", {}).get(str(len(names)), sw.get("boxes", "equal"))

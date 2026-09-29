@@ -6,7 +6,9 @@ Instagram Reels and YouTube Shorts, on the same night you record.
 Every clip comes out 1080×1920 with:
 
 - **A hook opener.** The punchiest 2 to 6 second line plays first, then the
-  whole take.
+  whole take. The cut from the hook into the take hits with a quick punch-in,
+  a cream flash and a whoosh into a bass hit (`"hook_transition": false` in
+  `settings.json` turns it off).
 - **Score and player pop-ups.** When a finished game comes up, its final
   score slides in; when a player is named, a card with their headshot,
   position and team. Claude spots the mentions; the scores and headshots

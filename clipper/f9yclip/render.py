@@ -19,7 +19,8 @@ TITLE_SECONDS = 3.0
 CARD_SECONDS = 3.2
 CARD_SLIDE = 0.3
 CARD_Y = 170         # the title's spot, free once the title is gone
-SPLIT_H = 960        # with game footage: speaker on the top half, game on the bottom
+SPLIT_H = 960
+PUNCH_FRAMES = 8     # the hook's last frames zoom in before the cut to the take        # with game footage: speaker on the top half, game on the bottom
 
 # ASS colors are &HAABBGGRR. Brand: black #101311, green #3F7954, gold #D4AF37.
 WHITE = "&H00FFFFFF"
@@ -30,12 +31,16 @@ CREAM = "&H00E7EDEF"
 
 
 def ffmpeg_exe() -> str:
-    found = shutil.which("ffmpeg")
-    if found:
-        return found
-    import imageio_ffmpeg
+    # Prefer the copy that comes with imageio-ffmpeg: a known, recent version.
+    try:
+        import imageio_ffmpeg
 
-    return imageio_ffmpeg.get_ffmpeg_exe()
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        found = shutil.which("ffmpeg")
+        if found:
+            return found
+        raise SystemExit("Couldn't find ffmpeg. Run: pip install -r requirements.txt")
 
 
 def render_all(
@@ -209,6 +214,14 @@ def render_one(
     if game:
         # Loops if the footage is shorter than the clip; its own audio is dropped.
         inputs += ["-stream_loop", "-1", "-ss", f"{float(clip.get('game_from') or 0):.2f}", "-t", f"{body_len:.2f}", "-i", str(game)]
+    hit = game_input + (1 if game else 0)
+    transition = bool(hook) and (settings or {}).get("hook_transition", True)
+    if transition:
+        # A whoosh into the cut and a bass hit on it, made on the spot so there are no sound files to license.
+        inputs += [
+            "-f", "lavfi", "-i", "aevalsrc='0.7*sin(2*PI*50*t)*exp(-8*t)+0.2*sin(2*PI*110*t)*exp(-14*t)':s=48000:d=0.5",
+            "-f", "lavfi", "-i", "anoisesrc=color=pink:amplitude=0.35:d=0.3:r=48000",
+        ]
 
     norm_v = f"fps={FPS},setsar=1,format=yuv420p"
     norm_a = "aformat=sample_rates=48000:channel_layouts=stereo"
@@ -216,7 +229,13 @@ def render_one(
     top = "tv" if game else "bv0"
     if hook:
         hook_layout = layout if layout != "speaker" or clip.get("hook_shots") else ("center" if game else "blur")
-        parts += [f"{frame(1, hook_layout, clip.get('hook_shots'), crop, size)},{norm_v}[hv]", f"[1:a:0]{norm_a}[ha]",
+        punch = ""
+        if transition:
+            # Punch in over the hook's last few frames.
+            k = max(round((hook[1] - hook[0]) * FPS) - PUNCH_FRAMES, 0)
+            punch = (f",fps={FPS},zoompan=z='if(gte(on,{k}),1+0.02*(on-{k}),1)':x='iw/2-(iw/zoom/2)':"
+                     f"y='ih/2-(ih/zoom/2)':d=1:s={size[0]}x{size[1]}:fps={FPS}")
+        parts += [f"{frame(1, hook_layout, clip.get('hook_shots'), crop, size)}{punch},{norm_v}[hv]", f"[1:a:0]{norm_a}[ha]",
                   f"[hv][ha][mv][ma]concat=n=2:v=1:a=1[{top}][ba]"]
     else:
         parts += [f"[mv]null[{top}]", "[ma]anull[ba]"]
@@ -225,6 +244,20 @@ def render_one(
                   f"crop={W}:{H - SPLIT_H},{norm_v}[gv]", "[tv][gv]vstack=inputs=2[bv0]"]
 
     last = "bv0"
+    audio = "ba"
+    if transition:
+        cut = hook[1] - hook[0]
+        # A quick cream flash on the cut.
+        parts.append(f"[bv0]drawbox=x=0:y=0:w=iw:h=ih:c=0xEFEDE7@0.85:t=fill:enable='between(t,{cut - 0.03:.2f},{cut + 0.1:.2f})'[fl]")
+        last = "fl"
+        whoosh_at = max(cut - 0.3, 0)
+        parts += [
+            f"[{hit}:a]{norm_a},adelay={cut * 1000:.0f}|{cut * 1000:.0f}[hit]",
+            f"[{hit + 1}:a]highpass=f=900,lowpass=f=6000,afade=t=in:d=0.28:curve=exp,{norm_a},"
+            f"adelay={whoosh_at * 1000:.0f}|{whoosh_at * 1000:.0f}[whoosh]",
+            "[ba][hit][whoosh]amix=inputs=3:duration=first:normalize=0[bx]",
+        ]
+        audio = "bx"
     # Cards slide in from the left, hold, and slide out to the right.
     card_y = SPLIT_H + 100 if game else CARD_Y
     for i, (_, a, b) in enumerate(cards or []):
@@ -237,11 +270,11 @@ def render_one(
     boost = float((settings or {}).get("voice_boost", 1.2))
     voice = clip.get("voice", "normal")
     if voice == "fast":
-        parts += [f"[cv0]setpts=PTS/{boost}[cv]", f"[ba]asetrate={48000 * boost:.0f},aresample=48000[ba2]"]
+        parts += [f"[cv0]setpts=PTS/{boost}[cv]", f"[{audio}]asetrate={48000 * boost:.0f},aresample=48000[ba2]"]
     elif voice == "pitch":
-        parts += ["[cv0]null[cv]", f"[ba]asetrate={48000 * boost:.0f},aresample=48000,atempo={1 / boost:.5f}[ba2]"]
+        parts += ["[cv0]null[cv]", f"[{audio}]asetrate={48000 * boost:.0f},aresample=48000,atempo={1 / boost:.5f}[ba2]"]
     else:
-        parts += ["[cv0]null[cv]", "[ba]anull[ba2]"]
+        parts += ["[cv0]null[cv]", f"[{audio}]anull[ba2]"]
 
     parts += [
         f"[{mark}:v]scale=420:-1[mark]",

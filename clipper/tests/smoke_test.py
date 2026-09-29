@@ -118,13 +118,16 @@ def main():
         {"start": 20.0, "end": 22.0, "title": "Too short", "hook_start": 0, "hook_end": 0, "teams": [],
          "why": "", "caption": "", "hashtags": [], "score": 3},
     ])
+    sections = tmp / "sections.txt"
+    sections.write_text("0:00 NFL recap\n0:10 CFB preview\n")
     with patch:
-        run_cli([str(video), "--transcript", str(srt), "--first-post", "2026-10-01"])
+        run_cli([str(video), "--transcript", str(srt), "--sections", str(sections), "--first-post", "2026-10-01"])
     prompt = client.beta.messages.stream.call_args.kwargs["messages"][0]["content"]
     assert "JJ McCarthy is so good" in prompt and "New York Giants" in prompt
+    assert prompt.index("SECTION: NFL recap") < prompt.index("JJ McCarthy") < prompt.index("SECTION: CFB preview"), prompt
     out = tmp / "episode_clips"
     approved = json.loads((out / "approved.json").read_text())
-    assert len(approved) == 1 and approved[0]["use_hook"], approved
+    assert len(approved) == 1 and approved[0]["use_hook"] and approved[0]["section"] == "NFL recap", approved
     assert [t["name"] for t in approved[0]["teams"]] == ["New York Giants", "Minnesota Vikings"], approved[0]["teams"]
     rendered = sorted(out.glob("*.mp4"))
     assert rendered[0].name.startswith("2026-10-01-Thu_01-jj-mccarthy"), rendered

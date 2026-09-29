@@ -61,14 +61,20 @@ HOOK_AND_TEAMS = (
 )
 
 
-def format_transcript(transcript: dict) -> str:
-    return "\n".join(
-        f"[{seg['start']:.1f}-{seg['end']:.1f}] " + (f"{seg['speaker']}: " if seg.get("speaker") else "") + seg["text"]
-        for seg in transcript["segments"]
-    )
+def format_transcript(transcript: dict, sections: list[tuple[float, str]] = ()) -> str:
+    lines, upcoming = [], list(sections)
+    for seg in transcript["segments"]:
+        while upcoming and upcoming[0][0] <= seg["start"] + 0.5:
+            lines.append(f"=== SECTION: {upcoming.pop(0)[1]} ===")
+        lines.append(f"[{seg['start']:.1f}-{seg['end']:.1f}] " + (f"{seg['speaker']}: " if seg.get("speaker") else "") + seg["text"])
+    return "\n".join(lines)
 
 
-def pick_clips(transcript: dict, guide: str, out: Path, count: int = 12) -> list[dict]:
+def section_at(sections: list[tuple[float, str]], t: float) -> str:
+    return next((name for start, name in reversed(sections) if start <= t + 0.5), "")
+
+
+def pick_clips(transcript: dict, guide: str, out: Path, count: int = 12, sections: list[tuple[float, str]] = ()) -> list[dict]:
     if out.exists():
         print(f"Using cached clip picks: {out}")
         return json.loads(out.read_text())
@@ -84,7 +90,10 @@ def pick_clips(transcript: dict, guide: str, out: Path, count: int = 12) -> list
         + 
         f"Find the {count} best clips in the episode, following the guide above. Start each clip at the first "
         "word of the take and end it at the last word. Clips must not overlap. Order them best first.\n\n"
-        f"{HOOK_AND_TEAMS}\n\n<transcript>\n{format_transcript(transcript)}\n</transcript>"
+        + ("The episode is split into the sections marked in the transcript. Spread the clips across every "
+           "section so each one gets its best moments, rather than taking them all from the longest.\n\n"
+           if sections else "")
+        + f"{HOOK_AND_TEAMS}\n\n<transcript>\n{format_transcript(transcript, sections)}\n</transcript>"
     )
     clips = _ask(prompt)
 
@@ -97,6 +106,7 @@ def pick_clips(transcript: dict, guide: str, out: Path, count: int = 12) -> list
             clip["start"], clip["end"] = snap_to_segments(transcript["segments"], clip["start"], clip["end"])
         clip["end"] = min(clip["end"], transcript["duration"])
         if clip["end"] - clip["start"] >= 5:
+            clip["section"] = section_at(sections, clip["start"])
             picked.append(tidy(clip))
 
     out.write_text(json.dumps(picked, indent=2))

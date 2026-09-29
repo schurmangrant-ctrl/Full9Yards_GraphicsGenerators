@@ -88,6 +88,18 @@ python -m f9yclip "episode.mp4" --ranges picks.txt
 Claude writes the titles you left blank, the hooks, the teams and the post
 captions. Add `--no-review` to go straight to rendering.
 
+**Tell it where each part of the show starts** (optional). Keep recording one
+file; just jot down when each part begins, in a text file:
+```
+0:00 CFB recap
+38:10 NFL recap
+1:12:00 CFB preview
+1:25:30 NFL preview
+```
+and add `--sections sections.txt`. Claude spreads its picks across every
+part instead of taking them all from the longest one, and each card on the
+review page shows which part it came from.
+
 No transcript and no list? `python -m f9yclip "episode.mp4"` still works, but
 it transcribes the whole episode first, which is slow on a laptop.
 

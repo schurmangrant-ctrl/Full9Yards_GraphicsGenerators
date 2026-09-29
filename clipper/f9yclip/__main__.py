@@ -24,6 +24,7 @@ def main() -> None:
     parser.add_argument("video", type=Path, help="The full episode video file")
     parser.add_argument("--transcript", type=Path, help="An .srt or .vtt transcript of the episode. Skips the slow full transcription.")
     parser.add_argument("--ranges", type=Path, help="A text file of clips you picked, one per line: 12:30-13:45 optional title")
+    parser.add_argument("--sections", type=Path, help="A text file of where each part of the show starts, one per line: 0:00 CFB recap")
     parser.add_argument("--hosts", help="Who's on this episode, left to right on screen, e.g. Grant,Noah (default: everyone in settings.json)")
     parser.add_argument("--count", type=int, default=12, help="How many candidates to ask for (default 12)")
     parser.add_argument("--no-review", action="store_true", help="Skip the review page. Renders your ranges, or every candidate Claude scored 7+.")
@@ -84,7 +85,8 @@ def main() -> None:
             picks_file.unlink()
         if mics:
             label_segments(transcript, *mics)
-        candidates = pick_clips(transcript, guide, picks_file, count=args.count)
+        sections = read_sections(args.sections) if args.sections else []
+        candidates = pick_clips(transcript, guide, picks_file, count=args.count, sections=sections)
 
     for c in candidates:
         c.setdefault("layout", "speaker" if crop else "blur")
@@ -137,6 +139,18 @@ def read_ranges(path: Path) -> list[dict]:
     if not clips:
         raise SystemExit(f"No time ranges found in {path.name}. Write one per line, like 12:30-13:45.")
     return clips
+
+
+def read_sections(path: Path) -> list[tuple[float, str]]:
+    """Lines like "0:00 CFB recap" or "47:30 NFL preview"."""
+    sections = []
+    for line in path.read_text().splitlines():
+        m = re.match(r"\s*(\d+(?::\d{1,2}){0,2})\s+(.+)$", line)
+        if m:
+            sections.append((to_seconds(m.group(1)), m.group(2).strip()))
+    if not sections:
+        raise SystemExit(f"No sections found in {path.name}. Write one per line, like 47:30 NFL preview.")
+    return sorted(sections)
 
 
 def to_seconds(stamp: str) -> float:

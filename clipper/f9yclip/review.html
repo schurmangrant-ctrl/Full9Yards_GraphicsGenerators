@@ -86,7 +86,7 @@ function draw() {
     <div class="card ${c.keep ? 'kept' : ''} ${i === playingIndex ? 'playing' : ''}" data-i="${i}">
       <div class="row">
         <span class="rank">${i + 1}</span>
-        ${c.score != null ? `<span class="score">score ${c.score}/10</span>` : ''}
+        ${c.score != null ? `<span class="score">score ${c.score}/10</span>` : ''}${c.section ? `<span class="score">${esc(c.section)}</span>` : ''}
         <span class="len">${fmt(c.start)} · ${(c.end - c.start).toFixed(0)}s</span>
         <label class="keep"><input type="checkbox" data-f="keep" ${c.keep ? 'checked' : ''}> Keep</label>
       </div>

@@ -15,6 +15,7 @@ from unittest import mock
 from f9yclip import __main__ as cli
 from f9yclip import pick
 from f9yclip.render import ffmpeg_exe
+from tests import fake_espn
 
 SENTENCES = [
     "Okay so here is my hot take for the week.",
@@ -76,6 +77,11 @@ def fake_claude(clips):
     return mock.patch.object(pick.anthropic, "Anthropic", return_value=client), client
 
 
+def cli_attach(clips, day, cache):
+    from f9yclip.cards import attach_cards
+    attach_cards(clips, day, cache)
+
+
 def run_cli(argv):
     with mock.patch.object(sys, "argv", ["f9yclip", *argv]):
         cli.main()
@@ -114,20 +120,28 @@ def main():
          "hook_end": hook_line["start"] + 3.0, "teams": [{"name": "New York Giants", "at": hook_line["start"] + 2},
                                                         {"name": "Minnesota Vikings", "at": 12.0},
                                                         {"name": "Not A Team", "at": 3.0}],
+         "games": [{"team": "New York Giants", "opponent": "Minnesota Vikings", "at": 6.0}],
+         "players": [{"name": "JJ McCarthy", "team": "Minnesota Vikings", "at": 9.0}],
          "why": "Bold take", "caption": "Is JJ that guy?", "hashtags": ["nfl"], "score": 9},
         {"start": 20.0, "end": 22.0, "title": "Too short", "hook_start": 0, "hook_end": 0, "teams": [],
          "why": "", "caption": "", "hashtags": [], "score": 3},
     ])
     sections = tmp / "sections.txt"
     sections.write_text("0:00 NFL recap\n0:10 CFB preview\n")
-    with patch:
-        run_cli([str(video), "--transcript", str(srt), "--sections", str(sections), "--first-post", "2026-10-01"])
+    cache = tmp / "espn"
+    with patch, fake_espn.patched(), mock.patch.object(cli, "attach_cards",
+                                                      side_effect=lambda c, d, _: cli_attach(c, d, cache)):
+        run_cli([str(video), "--transcript", str(srt), "--sections", str(sections), "--first-post", "2026-10-01",
+                 "--played", "2026-09-28"])
     prompt = client.beta.messages.stream.call_args.kwargs["messages"][0]["content"]
     assert "JJ McCarthy is so good" in prompt and "New York Giants" in prompt
     assert prompt.index("SECTION: NFL recap") < prompt.index("JJ McCarthy") < prompt.index("SECTION: CFB preview"), prompt
     out = tmp / "episode_clips"
     approved = json.loads((out / "approved.json").read_text())
     assert len(approved) == 1 and approved[0]["use_hook"] and approved[0]["section"] == "NFL recap", approved
+    cards = {c["kind"]: c for c in approved[0]["cards"]}
+    assert cards["score"]["label"] == "MIN 24, NYG 27 (Final)", cards
+    assert cards["player"]["name"] == "J.J. McCarthy" and cards["player"]["headshot"], cards
     assert [t["name"] for t in approved[0]["teams"]] == ["New York Giants", "Minnesota Vikings"], approved[0]["teams"]
     rendered = sorted(out.glob("*.mp4"))
     assert rendered[0].name.startswith("2026-10-01-Thu_01-jj-mccarthy"), rendered

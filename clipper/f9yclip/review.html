@@ -151,8 +151,6 @@ function draw() {
           ${[...(data.speaker_switching ? [['speaker', 'Follow the speaker']] : []), ['blur', 'Whole shot, blurred fill'], ['left', 'Crop left'], ['center', 'Crop center'], ['right', 'Crop right']]
             .map(([v, t]) => `<option value="${v}" ${c.layout === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
-        <span class="small">Host tag</span>
-        <input type="text" list="hosts" data-f="speaker" value="${esc(c.speaker)}" placeholder="optional" aria-label="Host name tag">
       </div>
       <div class="row">
         <label class="keep" style="margin-left:0"><input type="checkbox" data-f="use_hook" ${c.use_hook ? 'checked' : ''}> Open with hook</label>
@@ -176,6 +174,10 @@ function draw() {
         </select>
         ${c.game ? `<span class="small">from</span><input type="number" step="1" data-f="game_from" value="${(c.game_from ?? 0).toFixed(0)}" aria-label="Game footage start seconds">` : ''}
       </div>
+      ${(c.cards || []).length ? `<div class="row"><span class="small">Pop-ups</span>
+        ${c.cards.map((k, j) => `<label class="keep" style="margin-left:0;font-weight:400"><input type="checkbox" data-card="${j}" ${k.keep !== false ? 'checked' : ''}>
+          ${k.kind === 'score' ? 'Score' : 'Player'}: ${esc(k.label)} <span class="len">at ${fmt(k.at)}</span></label>`).join('')}
+      </div>` : ''}
       <div class="said">${esc(said(c))}</div>
       <textarea data-f="caption" aria-label="Post caption">${esc(c.caption)}</textarea>
     </div>`).join('');
@@ -184,6 +186,7 @@ function draw() {
 list.addEventListener('change', e => {
   const card = e.target.closest('.card'); if (!card) return;
   const c = clips[+card.dataset.i], f = e.target.dataset.f;
+  if (e.target.dataset.card != null) { c.cards[+e.target.dataset.card].keep = e.target.checked; return; }
   if (f === 'keep' || f === 'use_hook') c[f] = e.target.checked;
   else if (f === 'game') c.game = e.target.value;
   else if (['start', 'end', 'hook_start', 'hook_end', 'game_from'].includes(f)) c[f] = Math.max(0, parseFloat(e.target.value) || 0);

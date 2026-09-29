@@ -17,6 +17,10 @@ W, H, FPS = 1080, 1920, 30
 END_CARD_SECONDS = 2.0
 LOGO_SIZE = 260
 LOGO_Y = 350
+TITLE_SECONDS = 3.0
+CARD_SECONDS = 3.2
+CARD_SLIDE = 0.3
+CARD_Y = 170         # the title's spot, free once the title is gone
 SPLIT_H = 960        # with game footage: speaker on the top half, game on the bottom
 
 # ASS colors are &HAABBGGRR. Brand: black #101311, green #3F7954, gold #D4AF37.
@@ -24,6 +28,7 @@ WHITE = "&H00FFFFFF"
 BLACK = "&H00111310"
 GREEN = "&H0054793F"
 GOLD = "&H0037AFD4"
+CREAM = "&H00E7EDEF"
 
 
 def ffmpeg_exe() -> str:
@@ -69,7 +74,15 @@ def render_all(
 
         hook = hook_range(clip)
         hook_len = hook[1] - hook[0] if hook else 0.0
-        appearances = logo_appearances(clip, hook_len)
+        cards = card_appearances(clip, hook_len)
+        # A team's logo on a later mention would sit under a card, so skip it then.
+        appearances = [(t, a, b) for t, a, b in logo_appearances(clip, hook_len)
+                       if a == 0.0 or not any(a < ce and b > cs for _, cs, ce in cards)]
+        card_files = []
+        for k, (card, cs, ce) in enumerate(cards):
+            png = f"card{n:02d}_{k}.png"
+            make_card(card, build, png)
+            card_files.append((png, cs, ce))
         for team, _, _ in appearances:
             shutil.copy(ASSETS / "logos" / logo_files[team], build / logo_files[team])
 
@@ -77,7 +90,7 @@ def render_all(
         (build / ass_name).write_text(clip_ass(clip, hook, settings))
         target = (out_dir / f"{name}.mp4").resolve()
         render_one(video.resolve(), clip, hook, [(logo_files[t], a, b) for t, a, b in appearances], build, ass_name, target,
-                   crop, split_crop, settings)
+                   crop, split_crop, settings, card_files)
         outputs.append(target)
 
         tags = " ".join("#" + t.lstrip("#") for t in clip.get("hashtags", []))
@@ -116,9 +129,85 @@ def logo_appearances(clip: dict, hook_len: float) -> list[tuple[str, float, floa
     return shown
 
 
+def card_appearances(clip: dict, hook_len: float) -> list[tuple[dict, float, float]]:
+    """(card, from, to) on the output timeline, one at a time, after the title is gone."""
+    total = hook_len + clip["end"] - clip["start"]
+    free_from = title_end(hook_len, total) + 0.2
+    shown = []
+    for card in clip.get("cards", []):
+        if not card.get("keep", True):
+            continue
+        t = max(hook_len + card["at"] - clip["start"], free_from)
+        if t + CARD_SECONDS > total - 0.3:
+            continue
+        shown.append((card, t, t + CARD_SECONDS))
+        free_from = t + CARD_SECONDS + 0.3
+    return shown
+
+
+def make_card(card: dict, build: Path, png: str) -> None:
+    """Draw one branded card as a PNG in the build folder."""
+    images, events = [], []
+    if card["kind"] == "score":
+        cw, ch = 920, 220
+        events.append(dialogue("Card", 0, 5, f"{{\\an8\\pos({cw // 2},12)\\fs38\\c{GOLD}}}{ass_text(card['status'])}"))
+        dim = "&H00858A8A"
+        for k, (sd, lx, sx) in enumerate(zip(card["sides"], (30, cw - 180), (330, cw - 330))):
+            color = WHITE if sd["winner"] or not any(o["winner"] for o in card["sides"]) else dim
+            events.append(dialogue("Card", 0, 5, f"{{\\an5\\pos({sx},124)\\fs130\\c{color}}}{sd['score']}"))
+            events.append(dialogue("Card", 0, 5, plate(lx - 10, 26, 170, 170)))
+            if sd.get("logo") and (ASSETS / "logos" / sd["logo"]).exists():
+                images.append((ASSETS / "logos" / sd["logo"], lx + 5, 41, 140, 140))
+            else:
+                events.append(dialogue("Card", 0, 5, f"{{\\an5\\pos({lx + 75},111)\\fs70\\c{BLACK}}}{ass_text(sd['abbr'])}"))
+        events.append(dialogue("Card", 0, 5, f"{{\\an5\\pos({cw // 2},124)\\fs90\\c{GOLD}}}-"))
+    else:
+        cw, ch = 880, 240
+        events.append(dialogue("Card", 0, 5, f"{{\\an7\\pos(0,0)\\p1\\c{GREEN}}}m 0 0 l 240 0 l 240 {ch} l 0 {ch}"))
+        if card.get("headshot") and Path(card["headshot"]).exists():
+            images.append((Path(card["headshot"]), 0, 0, 240, ch))
+        name = card["name"].upper()
+        size = 80 if len(name) <= 15 else 64 if len(name) <= 20 else 52
+        team = card["team"].split()[-1] if card["logo"].startswith("nfl-") else card["team"]
+        sub = " · ".join(x for x in (card.get("position", ""), team.upper()) if x)
+        events.append(dialogue("Card", 0, 5, f"{{\\an4\\pos(268,92)\\fs{size}}}{ass_text(name)}"))
+        events.append(dialogue("Card", 0, 5, f"{{\\an4\\pos(270,172)\\fs44\\c{GOLD}}}{ass_text(sub)}"))
+        if (ASSETS / "logos" / card["logo"]).exists():
+            events.append(dialogue("Card", 0, 5, plate(cw - 150, 55, 130, 130)))
+            images.append((ASSETS / "logos" / card["logo"], cw - 140, 65, 110, 110))
+    events.append(dialogue("Card", 0, 5, f"{{\\an7\\pos(0,0)\\p1\\c{GOLD}}}m 0 {ch - 8} l {cw} {ch - 8} l {cw} {ch} l 0 {ch}"))
+
+    ass_name = png.replace(".png", ".ass")
+    (build / ass_name).write_text(ass_file([style("Card", 60, WHITE, BLACK, outline=0, shadow=0, align=7, margin_v=0)],
+                                           events, cw, ch))
+    inputs, graph, last = [], [f"[0:v]ass={ass_name}:fontsdir=.[b0]"], "b0"
+    for k, (path, x, y, w, h) in enumerate(images):
+        inputs += ["-i", str(path.resolve())]
+        # Logos fit inside their box; a headshot fills its panel from the bottom up.
+        fit = "decrease" if "logos" in path.parts else "increase"
+        graph.append(f"[{k + 1}:v]scale={w}:{h}:force_original_aspect_ratio={fit},crop='min(iw,{w})':'min(ih,{h})'[im{k}]")
+        graph.append(f"[{last}][im{k}]overlay=x={x}+({w}-w)/2:y={y}+({h}-h)[b{k + 1}]" if fit == "increase" else
+                     f"[{last}][im{k}]overlay=x={x}+({w}-w)/2:y={y}+({h}-h)/2[b{k + 1}]")
+        last = f"b{k + 1}"
+    subprocess.run(
+        [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"color=c=0x101311:s={cw}x{ch}:d=1",
+         *inputs, "-filter_complex", ";".join(graph), "-map", f"[{last}]", "-frames:v", "1", png],
+        cwd=build, check=True,
+    )
+
+
+def plate(x: int, y: int, w: int, h: int) -> str:
+    """A cream tile behind a team logo, so dark logos stay visible on the black card."""
+    return f"{{\\an7\\pos(0,0)\\p1\\c{CREAM}}}m {x} {y} l {x + w} {y} l {x + w} {y + h} l {x} {y + h}"
+
+
+def ass_text(s: str) -> str:
+    return str(s).replace("{", "(").replace("}", ")").replace("\\", "/")
+
+
 def render_one(
     video: Path, clip: dict, hook, logos: list[tuple[str, float, float]], build: Path, ass_name: str, target: Path,
-    crop=None, split_crop=None, settings: dict | None = None,
+    crop=None, split_crop=None, settings: dict | None = None, cards: list | None = None,
 ) -> None:
     start, end = clip["start"], clip["end"]
     layout = clip.get("layout", "blur")
@@ -148,7 +237,11 @@ def render_one(
     for i, (file, _, _) in enumerate(logos):
         inputs += ["-loop", "1", "-t", f"{body_len:.2f}", "-i", file]
         logo_inputs.append(silence + 1 + i)
-    game_input = silence + 1 + len(logos)
+    card_inputs = []
+    for i, (file, _, _) in enumerate(cards or []):
+        inputs += ["-loop", "1", "-t", f"{body_len:.2f}", "-i", file]
+        card_inputs.append(silence + 1 + len(logos) + i)
+    game_input = silence + 1 + len(logos) + len(cards or [])
     if game:
         # Loops if the footage is shorter than the clip; its own audio is dropped.
         inputs += ["-stream_loop", "-1", "-ss", f"{float(clip.get('game_from') or 0):.2f}", "-t", f"{body_len:.2f}", "-i", str(game)]
@@ -179,6 +272,14 @@ def render_one(
         logo_y = SPLIT_H + 120 if game else LOGO_Y
         parts.append(f"[{last}][lg{i}]overlay=x={x}+({LOGO_SIZE}-w)/2:y={logo_y}:enable='between(t,{a:.2f},{b:.2f})'[lo{i}]")
         last = f"lo{i}"
+    # Cards slide in from the left, hold, and slide out to the right.
+    card_y = SPLIT_H + 100 if game else CARD_Y
+    for i, (_, a, b) in enumerate(cards or []):
+        x0 = f"(W-w)/2"
+        x = (f"if(lt(t,{a + CARD_SLIDE:.2f}),-w+({x0}+w)*(t-{a:.2f})/{CARD_SLIDE},"
+             f"if(gt(t,{b - CARD_SLIDE:.2f}),{x0}+(W-{x0})*(t-{b - CARD_SLIDE:.2f})/{CARD_SLIDE},{x0}))")
+        parts.append(f"[{last}][{card_inputs[i]}:v]overlay=x='{x}':y={card_y}:enable='between(t,{a:.2f},{b:.2f})'[cd{i}]")
+        last = f"cd{i}"
     parts.append(f"[{last}]ass={ass_name}:fontsdir=.[cv0]")
     boost = float((settings or {}).get("voice_boost", 1.2))
     voice = clip.get("voice", "normal")
@@ -239,18 +340,7 @@ def clip_ass(clip: dict, hook, settings: dict) -> str:
 
     title = clip.get("title", "").strip().upper()
     if title:
-        events.append(dialogue("Title", 0, total, title))
-    speaker = clip.get("speaker", "").strip()
-    if speaker:
-        events.append(dialogue("Name", hook_len, min(total, hook_len + 6), speaker.upper()))
-    elif clip.get("layout") == "speaker":
-        # Name each host the first time the camera lands on them.
-        seen = set()
-        for offset, shot_list in [(0.0, clip.get("hook_shots") if hook else None), (hook_len, clip.get("shots"))]:
-            for t0, t1, host in shot_list or []:
-                if host not in seen and t1 - t0 >= 1.5:
-                    seen.add(host)
-                    events.append(dialogue("Name", offset + t0, min(offset + t0 + 2.2, total), host.upper()))
+        events.append(dialogue("Title", 0, title_end(hook_len, total), title))
 
     stretches = [(start, end, hook_len)]
     if hook:
@@ -276,10 +366,12 @@ def clip_ass(clip: dict, hook, settings: dict) -> str:
 
     return ass_file(
         [
-            # With game footage the captions sit on the seam between speaker and game.
-            style("Caption", 96, WHITE, BLACK, outline=7, shadow=0, align=2, margin_v=900 if split else 560),
+            # Captions sit at the speaker's chest: just above the game footage when
+            # there is some, otherwise high enough to clear the app's caption and
+            # username at the bottom, and nudged left of the like/share buttons.
+            style("Caption", 96, WHITE, BLACK, outline=7, shadow=0, align=2, margin_v=990 if split else 640,
+                  margin_l=90, margin_r=190),
             style("Title", 74, WHITE, BLACK, outline=18, shadow=0, align=8, margin_v=170, box=True),
-            style("Name", 52, WHITE, GREEN, outline=14, shadow=0, align=2, margin_v=1060 if split else 420, box=True),
         ],
         events,
     )
@@ -298,6 +390,11 @@ def end_card_ass(settings: dict) -> str:
             dialogue("Small", 0, END_CARD_SECONDS, f"{{\\pos({W // 2},{H // 2 + 330})}}{handle}"),
         ],
     )
+
+
+def title_end(hook_len: float, total: float) -> float:
+    """The title shows over the hook, or for the first few seconds when there's no hook."""
+    return min(hook_len if hook_len else TITLE_SECONDS, total)
 
 
 def caption_chunks(words: list[dict], max_words: int = 3, max_span: float = 1.4, max_gap: float = 0.6):
@@ -320,12 +417,12 @@ def clean(word: str) -> str:
     return word.strip().upper().replace("{", "(").replace("}", ")").rstrip(",")
 
 
-def style(name, size, primary, back, outline, shadow, align, margin_v, box=False):
+def style(name, size, primary, back, outline, shadow, align, margin_v, box=False, margin_l=60, margin_r=60):
     # BorderStyle 3 draws an opaque box in the outline color behind the text.
     border_style = 3 if box else 1
     return (
         f"Style: {name},{FONT},{size},{primary},{primary},{back},{back},"
-        f"0,0,0,0,100,100,1,0,{border_style},{outline},{shadow},{align},60,60,{margin_v},1"
+        f"0,0,0,0,100,100,1,0,{border_style},{outline},{shadow},{align},{margin_l},{margin_r},{margin_v},1"
     )
 
 
@@ -333,13 +430,13 @@ def dialogue(style_name, t0, t1, text):
     return f"Dialogue: 0,{ass_time(t0)},{ass_time(t1)},{style_name},,0,0,0,,{text}"
 
 
-def ass_file(styles, events):
+def ass_file(styles, events, width=W, height=H):
     return "\n".join(
         [
             "[Script Info]",
             "ScriptType: v4.00+",
-            f"PlayResX: {W}",
-            f"PlayResY: {H}",
+            f"PlayResX: {width}",
+            f"PlayResY: {height}",
             "WrapStyle: 0",
             "",
             "[V4+ Styles]",

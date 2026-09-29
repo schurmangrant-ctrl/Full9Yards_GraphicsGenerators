@@ -10,8 +10,13 @@ Every clip comes out 1080×1920 with:
 - **Team logos.** The teams the clip is about appear under the title as it
   opens, and again when a team first comes up later. All 32 NFL teams and the
   FBS teams from f9ytools are included.
-- Word-by-word captions, the title at the top, an optional host tag, and a
-  2-second F9Y end card.
+- **Score and player pop-ups.** When a finished game comes up, its final
+  score slides in; when a player is named, a card with their headshot,
+  position and team. Claude spots the mentions; the scores and headshots
+  come from ESPN's public site data, and a card is left out rather than
+  guessed if the lookup fails.
+- Word-by-word captions at chest level, clear of the like and share buttons;
+  the title over the hook (or the first 3 seconds); a 2-second F9Y end card.
 
 `captions.md` has each clip's post caption and hashtags.
 
@@ -26,8 +31,8 @@ Every clip comes out 1080×1920 with:
 3. Get an Anthropic API key from https://console.anthropic.com, then set it:
    - Mac/Linux: `export ANTHROPIC_API_KEY=sk-ant-...` (add it to `~/.zshrc` to keep it)
    - Windows PowerShell: `setx ANTHROPIC_API_KEY "sk-ant-..."`, then open a new terminal
-4. Edit `settings.json`: add every host's name (these show up as host tag
-   choices), and set your real handle and end card line.
+4. Edit `settings.json`: add every host's name and set your real handle and
+   end card line.
 
 ## Recording setup in OBS (free, one time)
 
@@ -125,12 +130,17 @@ Play each candidate, nudge the start or end, tick **Keep**, then press
 - edit the team list (comma separated, names as in `f9yclip/teams.json`),
 - set the framing:
   - **Follow the speaker** (default when mic tracks are set up) cuts to
-    whoever is talking and shows their name the first time the camera lands
-    on them.
+    whoever is talking.
   - **Whole shot, blurred fill** puts the full wide shot in the
     middle with a blurred copy above and below. It's safe for any camera setup.
   - **Crop left / center / right** is a tight vertical crop of one third of the
     frame, for when one host is talking and sits on that side.
+
+### Pop-ups
+
+Each card lists its score and player pop-ups with the moment they appear.
+Untick any that are wrong. Scores are looked up for games in the 10 days
+before the recording date (the video file's date, or `--played 2026-09-28`).
 
 ### Game footage under the speaker
 

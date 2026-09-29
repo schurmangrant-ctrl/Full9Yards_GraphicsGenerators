@@ -10,6 +10,7 @@ import re
 from datetime import date, timedelta
 from pathlib import Path
 
+from .cards import attach_cards
 from .pick import TEAMS, dress_clips, pick_clips
 from .render import render_all
 from .review import review
@@ -32,6 +33,8 @@ def main() -> None:
     parser.add_argument("--first-post", type=date.fromisoformat, default=date.today() + timedelta(days=1),
                         help="Date of the first post, YYYY-MM-DD (default tomorrow). Clips are spread one per day from here.")
     parser.add_argument("--per-day", type=int, default=1, help="Clips to post per day (default 1)")
+    parser.add_argument("--played", type=date.fromisoformat,
+                        help="Date the episode was recorded, YYYY-MM-DD, for looking up recent scores (default: the file's date)")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
 
@@ -96,6 +99,12 @@ def main() -> None:
 
     for c in candidates:
         c.setdefault("layout", "speaker" if crop else "blur")
+    if any(c.get("games") or c.get("players") for c in candidates) and not all("cards" in c for c in candidates):
+        print("Looking up scores and headshots...")
+        played = args.played or date.fromtimestamp(video.stat().st_mtime)
+        attach_cards(candidates, played, HERE / "cache")
+        if not args.ranges:
+            (work / "candidates.json").write_text(json.dumps(candidates, indent=2))
 
     if args.no_review:
         chosen = [c for c in candidates if c.get("keep") or (c.get("score") or 0) >= 7]

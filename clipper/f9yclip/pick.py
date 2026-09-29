@@ -30,6 +30,28 @@ CLIP_FIELDS = {
             "additionalProperties": False,
         },
     },
+    "games": {
+        "type": "array",
+        "description": "Specific games already played whose result the clip talks about (\"the Giants beat Dallas\", "
+                       "\"that Ohio State loss\"), with the time each is first mentioned. opponent is empty if it isn't "
+                       "said. Leave out upcoming games and general talk about a team.",
+        "items": {
+            "type": "object",
+            "properties": {"team": {"type": "string"}, "opponent": {"type": "string"}, "at": {"type": "number"}},
+            "required": ["team", "opponent", "at"],
+            "additionalProperties": False,
+        },
+    },
+    "players": {
+        "type": "array",
+        "description": "Up to 3 players named in the clip: full name, their team, and the time first named.",
+        "items": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "team": {"type": "string"}, "at": {"type": "number"}},
+            "required": ["name", "team", "at"],
+            "additionalProperties": False,
+        },
+    },
     "why": {"type": "string", "description": "One sentence on why this clip works"},
     "caption": {"type": "string", "description": "Post caption, 1-2 sentences, ends with a question that invites comments"},
     "hashtags": {"type": "array", "items": {"type": "string"}},
@@ -56,7 +78,9 @@ HOOK_AND_TEAMS = (
     "For each clip also choose the hook: the single most attention-grabbing line inside it, 2 to 6 "
     "seconds long, such as a bold claim or a funny reaction. The video opens on that line before playing "
     "the whole clip, so it must make sense on its own. List the teams the clip is about with the time "
-    "each is first named, including teams implied by a player's name. Use only names from this list:\n"
+    "each is first named, including teams implied by a player's name. Flag the specific finished games whose "
+    "result comes up, and the players named, so a score card or player card can pop up at that moment. "
+    "Use only team names from this list:\n"
     + "; ".join(t["name"] for t in TEAMS)
 )
 
@@ -146,6 +170,15 @@ def tidy(clip: dict) -> dict:
         for t in clip.get("teams", [])
         if t["name"].lower() in known and clip["start"] - 1 <= t["at"] <= clip["end"]
     ]
+    inside = lambda x: clip["start"] - 1 <= x.get("at", -1) <= clip["end"]
+    clip["games"] = [
+        {"team": known[g["team"].lower()], "opponent": known.get(g.get("opponent", "").lower(), ""), "at": g["at"]}
+        for g in clip.get("games", []) if g["team"].lower() in known and inside(g)
+    ]
+    clip["players"] = [
+        {"name": p["name"].strip(), "team": known.get(p.get("team", "").lower(), ""), "at": p["at"]}
+        for p in clip.get("players", []) if p.get("name", "").strip() and inside(p)
+    ][:3]
     hs, he = clip.get("hook_start", 0), clip.get("hook_end", 0)
     clip["use_hook"] = clip["start"] <= hs < he <= clip["end"] and 1.5 <= he - hs <= 8 and hs - clip["start"] > 2
     return clip

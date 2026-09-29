@@ -100,7 +100,7 @@ def main():
     )
     patches = [
         mock.patch.object(cli, "words_for_range", side_effect=fake_words_for_range),
-        mock.patch.object(cli, "review", side_effect=lambda v, t, clips, s, port: [dict(c, keep=True) for c in clips if (c.get("score") or 9) >= 7]),
+        mock.patch.object(cli, "review", side_effect=lambda v, t, clips, s, port, cameras=None: [dict(c, keep=True) for c in clips if (c.get("score") or 9) >= 7]),
     ]
     for p in patches:
         p.start()

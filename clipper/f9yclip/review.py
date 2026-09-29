@@ -6,6 +6,7 @@ page, then returns the clips you kept, with your edits.
 
 import json
 import mimetypes
+import subprocess
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -14,7 +15,10 @@ from pathlib import Path
 PAGE = Path(__file__).parent / "review.html"
 
 
-def review(video: Path, transcript: dict, clips: list[dict], settings: dict, port: int = 8765) -> list[dict]:
+def review(video: Path, transcript: dict, clips: list[dict], settings: dict, port: int = 8765,
+           cameras: dict | None = None) -> list[dict]:
+    """cameras, when the camera follows the speaker: {"boxes", "crop_w", "framing", "stills"}.
+    Dragging a host's crop box on the page updates cameras["framing"] in place."""
     result: dict = {}
     done = threading.Event()
 
@@ -35,11 +39,17 @@ def review(video: Path, transcript: dict, clips: list[dict], settings: dict, por
                     "hosts": settings.get("hosts", []),
                     "duration": transcript["duration"],
                     "episode": video.name,
-                    "speaker_switching": bool(settings.get("speaker_switching", {}).get("mic_tracks")),
+                    "speaker_switching": bool(cameras),
+                    "cameras": cameras and {
+                        name: {"box": box, "crop_w": cameras["crop_w"], "at": cameras["framing"].get(name, 0.5)}
+                        for name, box in cameras["boxes"].items()
+                    },
                 }
                 self._send(200, json.dumps(payload).encode(), "application/json")
             elif self.path == "/video":
                 self._send_video()
+            elif self.path.startswith("/still/") and cameras:
+                self._send_still(self.path[len("/still/"):])
             else:
                 self._send(404, b"not found", "text/plain")
 
@@ -47,7 +57,10 @@ def review(video: Path, transcript: dict, clips: list[dict], settings: dict, por
             if self.path != "/save":
                 return self._send(404, b"not found", "text/plain")
             body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
-            result["clips"] = json.loads(body)["clips"]
+            saved = json.loads(body)
+            result["clips"] = saved["clips"]
+            if cameras:
+                cameras["framing"].update(saved.get("framing") or {})
             self._send(200, b'{"ok": true}', "application/json")
             done.set()
 
@@ -57,6 +70,23 @@ def review(video: Path, transcript: dict, clips: list[dict], settings: dict, por
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        def _send_still(self, name):
+            from urllib.parse import unquote
+
+            from .render import ffmpeg_exe
+
+            name = unquote(name)
+            if name not in cameras["boxes"]:
+                return self._send(404, b"not found", "text/plain")
+            x, y, w, h = cameras["boxes"][name]
+            jpg = subprocess.run(
+                [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-ss", f"{cameras['stills'].get(name, 0):.2f}",
+                 "-i", str(video), "-frames:v", "1", "-vf", f"crop={w}:{h}:{x}:{y},scale=640:-2",
+                 "-f", "image2pipe", "-c:v", "mjpeg", "-"],
+                capture_output=True,
+            ).stdout
+            self._send(200 if jpg else 404, jpg or b"no frame", "image/jpeg" if jpg else "text/plain")
 
         def _send_video(self):
             # Browsers need HTTP range requests to seek inside a long video.

@@ -13,7 +13,7 @@ from pathlib import Path
 from .pick import TEAMS, dress_clips, pick_clips
 from .render import render_all
 from .review import review
-from .speakers import MicTracksMissing, boxes, label_segments, mic_levels, shots, vertical_crops
+from .speakers import HOP, MicTracksMissing, boxes, label_segments, mic_levels, shots, talking, vertical_crops
 from .transcribe import all_words, has_word_times, load_transcript_file, media_duration, transcribe, video_size, words_for_range
 
 HERE = Path(__file__).resolve().parent.parent
@@ -47,7 +47,7 @@ def main() -> None:
 
     # With each host's mic on its own track, the camera follows whoever is talking.
     switching = settings.get("speaker_switching")
-    mics = crop = None
+    mics = crop = cameras = None
     if switching and switching.get("mic_tracks"):
         try:
             on_air = [h.strip() for h in args.hosts.split(",")] if args.hosts else list(switching["mic_tracks"])
@@ -55,7 +55,12 @@ def main() -> None:
             if unknown:
                 raise SystemExit(f"No mic track set for {', '.join(unknown)} in settings.json.")
             mics = mic_levels(video, {h: switching["mic_tracks"][h] for h in on_air}, work / "mic_levels.npz")
-            crop = vertical_crops(boxes(settings, mics[0], *video_size(video)))
+            box_map = boxes(settings, mics[0], *video_size(video))
+            framing_file = HERE / "framing.json"
+            framing = json.loads(framing_file.read_text()) if framing_file.exists() else {}
+            cameras = {"boxes": box_map, "crop_w": vertical_crops(box_map)[0], "framing": framing,
+                       "stills": still_times(*mics)}
+            crop = vertical_crops(box_map, framing)
         except MicTracksMissing as e:
             print(f"Note: {e}")
 
@@ -94,7 +99,10 @@ def main() -> None:
     if args.no_review:
         chosen = [c for c in candidates if c.get("keep") or (c.get("score") or 0) >= 7]
     else:
-        chosen = review(video, transcript, candidates, settings, port=args.port)
+        chosen = review(video, transcript, candidates, settings, port=args.port, cameras=cameras)
+        if cameras:
+            (HERE / "framing.json").write_text(json.dumps(cameras["framing"], indent=2))
+            crop = vertical_crops(cameras["boxes"], cameras["framing"])
 
     known = {t["name"].lower(): t["name"] for t in TEAMS}
     for c in chosen:
@@ -119,6 +127,16 @@ def main() -> None:
     post_dates = [(args.first_post + timedelta(days=i // per_day)).strftime("%Y-%m-%d-%a") for i in range(len(chosen))]
     outputs = render_all(video, chosen, work, settings, post_dates, crop)
     print(f"\nDone. {len(outputs)} clips and captions.md are in {work}")
+
+
+def still_times(names: list[str], levels) -> dict[str, float]:
+    """A moment each host is talking, for the framing stills on the review page."""
+    who = talking(levels)
+    times = {}
+    for i, name in enumerate(names):
+        hits = (who == i).nonzero()[0]
+        times[name] = float(hits[len(hits) // 2] * HOP) if len(hits) else levels.shape[1] * HOP / 2
+    return times
 
 
 def covers(words, start: float, end: float) -> bool:

@@ -44,6 +44,14 @@
   .why { color: var(--dim); font-size: 14px; }
   .said { font-size: 14px; background: var(--cream); padding: 8px 10px; max-height: 130px; overflow: auto; }
   .small { font: 12px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+  .framing { display: grid; gap: 8px; }
+  .framing h2 { font: 900 20px/1 var(--display); text-transform: uppercase; margin: 6px 0 0; }
+  .cams { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .cam { display: grid; gap: 4px; }
+  .shot { position: relative; background: #000; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 3px; cursor: ew-resize; touch-action: none; }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; pointer-events: none; }
+  .shot .box { position: absolute; top: 0; bottom: 0; border: 3px solid var(--gold); box-shadow: 0 0 0 9999px rgba(0,0,0,.55); }
+  .shot:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .done { padding: 60px 20px; text-align: center; font: 900 36px var(--display); text-transform: uppercase; }
 </style>
 </head>
@@ -58,6 +66,11 @@
   <div class="player">
     <video id="player" src="/video" controls preload="metadata"></video>
     <div class="now" id="now">Press Play on a clip to preview it.</div>
+    <div class="framing" id="framing" hidden>
+      <h2>Clip framing</h2>
+      <div class="small">Drag each gold box over the person. It's remembered for next time.</div>
+      <div class="cams" id="cams"></div>
+    </div>
   </div>
   <div class="list" id="list"></div>
 </div>
@@ -76,8 +89,41 @@ fetch('/data').then(r => r.json()).then(d => {
   data = d;
   clips = d.clips.map(c => ({ layout: 'blur', speaker: '', keep: c.keep ?? (c.score ?? 0) >= 7, ...c }));
   document.getElementById('hosts').innerHTML = d.hosts.map(h => `<option value="${esc(h)}">`).join('');
+  if (d.cameras) drawFraming(d.cameras);
   draw();
 });
+
+const framing = {};
+function drawFraming(cams) {
+  document.getElementById('framing').hidden = false;
+  const wrap = document.getElementById('cams');
+  wrap.innerHTML = Object.entries(cams).map(([name, c]) => `
+    <div class="cam"><span class="small">${esc(name)}</span>
+      <div class="shot" tabindex="0" role="slider" aria-label="${esc(name)} crop position" data-name="${esc(name)}">
+        <img src="/still/${encodeURIComponent(name)}" alt=""><div class="box"></div>
+      </div></div>`).join('');
+  wrap.querySelectorAll('.shot').forEach(shot => {
+    const name = shot.dataset.name, c = cams[name], box = shot.querySelector('.box');
+    const share = c.crop_w / c.box[2];
+    const place = at => {
+      framing[name] = Math.min(1, Math.max(0, at));
+      box.style.width = `${share * 100}%`;
+      box.style.left = `${framing[name] * (1 - share) * 100}%`;
+      shot.setAttribute('aria-valuenow', Math.round(framing[name] * 100));
+    };
+    const fromPointer = e => {
+      const r = shot.getBoundingClientRect();
+      place(((e.clientX - r.left) / r.width - share / 2) / (1 - share));
+    };
+    shot.addEventListener('pointerdown', e => { shot.setPointerCapture(e.pointerId); fromPointer(e); });
+    shot.addEventListener('pointermove', e => { if (shot.hasPointerCapture(e.pointerId)) fromPointer(e); });
+    shot.addEventListener('keydown', e => {
+      const step = { ArrowLeft: -0.05, ArrowRight: 0.05 }[e.key];
+      if (step) { e.preventDefault(); place(framing[name] + step); }
+    });
+    place(c.at);
+  });
+}
 
 function draw() {
   const kept = clips.filter(c => c.keep).length;
@@ -173,7 +219,7 @@ document.getElementById('add').onclick = () => {
 document.getElementById('render').onclick = async () => {
   const kept = clips.filter(c => c.keep && c.end > c.start);
   if (!kept.length) { document.getElementById('meta').textContent = 'Tick Keep on at least one clip first.'; return; }
-  await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clips: kept }) });
+  await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clips: kept, framing }) });
   player.pause();
   document.getElementById('main').innerHTML = `<div class="done">Rendering ${kept.length} clips. Check your terminal.</div>`;
 };

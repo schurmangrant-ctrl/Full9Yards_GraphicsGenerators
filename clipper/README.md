@@ -45,22 +45,28 @@ Every clip comes out 1080×1920 with:
 3. `settings.json` already says Grant = 2, Noah = 3, Caden = 4. Change it if
    you set the tracks up differently.
 
-**Camera layout: a clean 4K grid.** Make an OBS scene with no overlay, set
-the canvas and output resolution to **3840x2160**, and place each 1080p webcam
-at full size in its own corner: Grant top left, Noah top right, Caden bottom
-left. Whoever isn't on that night leaves their corner black. Record that
-scene. Every camera keeps its full quality, the clips crop from it, and the
-YouTube version is cut from the same file.
+**Camera layout: webcams two to a row.** Make an OBS scene with no overlay
+and put each 1080p webcam in it at full size, two to a row, in the same
+order you'll pass to `--hosts`:
 
-`"boxes"` in `settings.json` gives each host's corner in pixels
-(`[x, y, width, height]`), so it doesn't matter who's on. Change it if you
-seat people differently.
+| Hosts | Canvas and output resolution | Layout |
+| --- | --- | --- |
+| 2 | 3840x1080 | side by side |
+| 3 | 3840x2160 | two on top, one bottom left |
+| 4 | 3840x2160 | two on top, two below |
 
-**Who's on tonight.** Pass the hosts in the recording: `--hosts Grant,Noah`.
-Leave it off when all three are on.
+Every camera keeps its full quality, the clips crop from it, and the YouTube
+version is cut from the same file. A fourth host needs their own mic track
+in `mic_tracks`.
 
-**Sit in the middle of your camera.** A vertical clip shows the middle third
-of each webcam's width, so anyone sitting off to one side gets cut off.
+**Who's on tonight.** Pass the hosts left to right, top row first:
+`--hosts Grant,Noah`. Leave it off when everyone in `mic_tracks` is on, in
+that order.
+
+**Clip framing.** A vertical clip shows about a third of each webcam's
+width. The review page has a still of each camera with a gold box on it:
+drag the box over the person. It's saved in `framing.json` and reused next
+episode, so you only touch it when someone sits differently.
 
 Recordings without the separate tracks still work. Their clips use the whole
 shot instead of following the speaker.

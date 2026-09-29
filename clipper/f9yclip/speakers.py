@@ -119,29 +119,40 @@ def label_segments(transcript: dict, names: list[str], levels: np.ndarray) -> No
 
 
 def boxes(settings: dict, names: list[str], frame_w: int, frame_h: int) -> dict[str, tuple[int, int, int, int]]:
-    """Each host's camera box (x, y, w, h) in the recorded frame, left to right in `names` order.
+    """Each host's camera box (x, y, w, h) in the recorded frame.
 
-    settings["speaker_switching"]["boxes"] is either "equal" (cameras side by side,
-    full height) or each host's fixed seat: {"Grant": [x, y, w, h], ...}. An
-    optional "layouts" entry per host count ("2", "3") overrides it with a list
-    of boxes, left to right.
+    settings["speaker_switching"]["boxes"] is one of:
+      "grid"  (default) 16:9 webcams two to a row, filled left to right then top
+              to bottom in `names` order: 3840x1080 for 2 hosts, 3840x2160 for 3 or 4.
+      "equal" cameras side by side at full height.
+      {"Grant": [x, y, w, h], ...} each host's fixed spot.
     """
-    sw = settings.get("speaker_switching", {})
-    spec = sw.get("layouts", {}).get(str(len(names)), sw.get("boxes", "equal"))
-    if isinstance(spec, str):
-        w = frame_w // len(names)
-        return {name: (i * w, 0, w, frame_h) for i, name in enumerate(names)}
+    spec = settings.get("speaker_switching", {}).get("boxes", "grid")
     if isinstance(spec, dict):
         return {name: tuple(spec[name]) for name in names}
-    if len(spec) != len(names):
-        raise SystemExit(f"The {len(names)}-host layout in settings.json lists {len(spec)} boxes.")
-    return {name: tuple(box) for name, box in zip(names, spec)}
+    if spec == "equal" or len(names) == 1:
+        w = frame_w // len(names)
+        return {name: (i * w, 0, w, frame_h) for i, name in enumerate(names)}
+    w = frame_w // 2
+    h = w * 9 // 16
+    if (len(names) + 1) // 2 * h > frame_h + 2:
+        raise SystemExit(f"{len(names)} webcams two to a row need a {frame_w}x{(len(names) + 1) // 2 * h} "
+                         f"recording, but this one is {frame_w}x{frame_h}. Check the OBS canvas size.")
+    return {name: (i % 2 * w, i // 2 * h, w, h) for i, name in enumerate(names)}
 
 
-def vertical_crops(box_map: dict, aspect: float = 9 / 16) -> tuple[int, int, dict[str, tuple[int, int]]]:
-    """One 9:16 crop size that fits every box, and where it sits in each box."""
+def vertical_crops(box_map: dict, framing: dict | None = None, aspect: float = 9 / 16):
+    """One 9:16 crop size that fits every box, and where it sits in each box.
+
+    framing maps a host to where their crop sits across their camera, from
+    0 (far left) to 1 (far right); 0.5, the middle, if not set.
+    """
+    framing = framing or {}
     cw = min(min(w, int(h * aspect)) for _, _, w, h in box_map.values())
     ch = int(cw / aspect)
     cw, ch = cw // 2 * 2, ch // 2 * 2
-    spots = {name: (x + (w - cw) // 2, y + max((h - ch) // 2, 0)) for name, (x, y, w, h) in box_map.items()}
+    spots = {}
+    for name, (x, y, w, h) in box_map.items():
+        f = min(max(float(framing.get(name, 0.5)), 0.0), 1.0)
+        spots[name] = (x + round((w - cw) * f), y + max((h - ch) // 2, 0))
     return cw, ch, spots

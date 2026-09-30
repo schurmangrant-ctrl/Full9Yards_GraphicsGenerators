@@ -5,9 +5,9 @@ on, the teams it's about, and a post caption.
 """
 
 import json
+import re
+from difflib import SequenceMatcher
 from pathlib import Path
-
-import anthropic
 
 from .transcribe import all_words
 
@@ -184,7 +184,43 @@ def tidy(clip: dict) -> dict:
     return clip
 
 
+def place_written(clip: dict) -> dict:
+    """A clip written up ahead of time, with its hook and pop-ups given as the words
+    said ("hook": "...", players' and games' "say": "..."). Pin each one to the
+    moment those words are spoken, so no one has to type times to the second."""
+    words = clip.get("words", [])
+    hook = find_phrase(words, clip.get("hook", ""))
+    clip["hook_start"], clip["hook_end"] = hook or (0, 0)
+    for item in clip.get("players", []) + clip.get("games", []):
+        at = find_phrase(words, item.pop("say", "") or item.get("name") or item.get("team", ""))
+        item["at"] = at[0] if at else -1
+    clip["teams"] = [{"name": t, "at": clip["start"]} for t in clip.get("teams", [])]
+    clip.setdefault("hashtags", [])
+    clip.setdefault("why", "")
+    return tidy(clip)
+
+
+def find_phrase(words: list[dict], phrase: str) -> tuple[float, float] | None:
+    """Start and end of the stretch of words that best matches `phrase`, allowing for
+    transcription slips ("Matir" for "Mateer"); None if nothing is close."""
+    clean = lambda s: re.sub(r"[^a-z0-9 ]", "", s.lower()).split()
+    want = clean(phrase)
+    said = [" ".join(clean(w["word"])) for w in words]
+    if not want or not said:
+        return None
+    best, where = 0.0, None
+    n = len(want)
+    for size in {max(n - 1, 1), n, n + 1}:
+        for i in range(len(said) - size + 1):
+            ratio = SequenceMatcher(None, " ".join(want), " ".join(said[i:i + size])).ratio()
+            if ratio > best:
+                best, where = ratio, (words[i]["start"], words[i + size - 1]["end"])
+    return where if best >= 0.75 else None
+
+
 def _ask(prompt: str) -> list[dict]:
+    import anthropic
+
     client = anthropic.Anthropic()
     with client.beta.messages.stream(
         model=MODEL,

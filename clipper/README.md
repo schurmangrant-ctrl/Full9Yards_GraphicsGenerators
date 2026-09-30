@@ -27,7 +27,11 @@ Every clip comes out 1080×1920 with:
    pip install -r requirements.txt
    ```
    This includes a copy of ffmpeg, so you don't need to install it separately.
-3. Get an Anthropic API key from https://console.anthropic.com, then set it:
+3. Optional: an Anthropic API key lets the tool ask Claude for picks, hooks
+   and captions on its own. It's billed separately from a Claude
+   subscription. Skip it and ask Claude in your project to write the clips
+   file instead (see **No API key** below). To set one up, get a key from
+   https://console.anthropic.com, then set it:
    - Mac/Linux: `export ANTHROPIC_API_KEY=sk-ant-...` (add it to `~/.zshrc` to keep it)
    - Windows PowerShell: `setx ANTHROPIC_API_KEY "sk-ant-..."`, then open a new terminal
 4. Edit `settings.json`: add every host's name and set your real handle and
@@ -106,6 +110,23 @@ python -m f9yclip "episode.mp4" --ranges picks.txt
 ```
 Claude writes the titles you left blank, the hooks, the teams and the post
 captions. Add `--no-review` to go straight to rendering.
+
+**No API key: clips written up ahead of time.** Ask Claude in your project to
+write the clips from your transcript as a `.json` file, then:
+```
+python -m f9yclip "episode.mp4" --ranges clips.json --hosts Grant,Noah,Caden
+```
+Each clip names its host, title, hook, caption and hashtags, plus any games and
+players for pop-ups. The hook and pop-ups are given as the words said, and the
+tool finds the moment they're spoken, so the times only need to be close:
+```json
+[{"start": "27:16", "end": "28:02", "host": "Noah", "title": "Mateer is shaking",
+  "hook": "John Mateer looks like he is shaking in his boots",
+  "caption": "Is Oklahoma good, bad or mediocre?", "hashtags": ["#oklahoma"],
+  "games": [{"team": "Oklahoma", "opponent": "New Mexico", "say": "New Mexico"}],
+  "players": [{"name": "John Mateer", "team": "Oklahoma", "say": "John Mateer"}]}]
+```
+Nothing is sent to Claude, so there's nothing to pay beyond your plan.
 
 **Tell it where each part of the show starts** (optional). Keep recording one
 file; just jot down when each part begins, in a text file:

@@ -13,7 +13,6 @@ from pathlib import Path
 from unittest import mock
 
 from f9yclip import __main__ as cli
-from f9yclip import pick
 from f9yclip.render import ffmpeg_exe
 from tests import fake_espn
 
@@ -74,7 +73,7 @@ class FakeStream:
 def fake_claude(clips):
     client = mock.Mock()
     client.beta.messages.stream.return_value = FakeStream(json.dumps({"clips": clips}))
-    return mock.patch.object(pick.anthropic, "Anthropic", return_value=client), client
+    return mock.patch("anthropic.Anthropic", return_value=client), client
 
 
 def cli_attach(clips, day, cache):
@@ -266,6 +265,23 @@ def main():
         got = ["red", "green", "blue"][max(range(3), key=lambda k: rgb[k])]
         assert got == want, (out5.name, want, list(rgb))
     print("mode 5 ok")
+
+    # 6. A picks file with the hooks and captions already written: no API key,
+    #    and the hook and player card land on the words as spoken.
+    written = tmp / "written.json"
+    written.write_text(json.dumps([{
+        "start": "0:01", "end": "0:12", "host": "Noah", "title": "JJ is HIM",
+        "hook": "JJ McCarthy is so good on this Giants team", "caption": "Is he? Tell us below.",
+        "hashtags": ["#nfl"], "players": [{"name": "JJ McCarthy", "team": "New York Giants", "say": "McCarthy"}],
+    }]))
+    with mock.patch("anthropic.Anthropic", side_effect=AssertionError("Claude was called")), \
+         mock.patch.object(cli, "attach_cards", lambda clips, day, cache: [c.setdefault("cards", []) for c in clips]):
+        run_cli([str(video5), "--ranges", str(written), "--no-review"])
+    six = json.loads((tmp / "five_clips" / "approved.json").read_text())[0]
+    mc = next(w for w in WORDS if w["word"] == "McCarthy")
+    assert six["use_hook"] and six["hook_start"] == next(w for w in WORDS if w["word"] == "JJ")["start"], six
+    assert six["players"][0]["at"] == mc["start"] and six["shots"][0][2] == "Noah", six
+    print("mode 6 ok")
     print("frames:", tmp / "hook.png", tmp / "opening.png")
 
 

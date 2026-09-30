@@ -11,7 +11,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from .cards import attach_cards
-from .pick import TEAMS, dress_clips, pick_clips
+from .pick import TEAMS, dress_clips, pick_clips, place_written
 from .render import render_all
 from .review import review
 from .speakers import HOP, MicTracksMissing, boxes, label_segments, mic_levels, shots, talking, vertical_crops
@@ -83,7 +83,9 @@ def main() -> None:
             print(f"Transcribing your clip at {c['start']:.0f}s for captions...")
             c["words"] = words_for_range(video, c["start"], c["end"], whisper)
         titles = {id(c): c["title"] for c in clips}
-        dressed = dress_clips(clips, guide)
+        # A picks file that already has the hooks and captions written needs no API key.
+        written = all(c.get("caption") for c in clips)
+        dressed = [place_written(dict(c)) for c in clips] if written else dress_clips(clips, guide)
         for mine, d in zip(clips, dressed):
             d["words"] = mine["words"]
             if titles[id(mine)]:
@@ -193,7 +195,16 @@ def covers(words, start: float, end: float) -> bool:
 
 def read_ranges(path: Path) -> list[dict]:
     """Lines like "12:30-13:45", "1:02:10 - 1:03:00 Giants QB take", or with the host
-    to show when there are no separate mic tracks: "12:30-13:45 [Caden] Bama is back"."""
+    to show when there are no separate mic tracks: "12:30-13:45 [Caden] Bama is back".
+    A .json file holds clips already written up (see place_written)."""
+    if path.suffix.lower() == ".json":
+        clips = json.loads(path.read_text())
+        for c in clips:
+            c["start"], c["end"] = to_seconds(str(c["start"])), to_seconds(str(c["end"]))
+            if c.get("host"):
+                c["layout"] = f"host:{c.pop('host')}"
+            c.setdefault("title", "")
+        return clips
     stamp = r"(\d+(?::\d{1,2}){0,2}(?:\.\d+)?)"
     clips = []
     for line in path.read_text().splitlines():

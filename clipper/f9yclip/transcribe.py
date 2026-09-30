@@ -123,15 +123,26 @@ def video_size(video: Path) -> tuple[int, int]:
     return int(m.group(1)), int(m.group(2))
 
 
-@lru_cache(maxsize=1)
-def _model(model_size: str):
+@lru_cache(maxsize=2)
+def _model(model_size: str, device: str = "auto"):
     from faster_whisper import WhisperModel
 
-    return WhisperModel(model_size, device="auto", compute_type="auto")
+    return WhisperModel(model_size, device=device, compute_type="auto" if device == "auto" else "int8")
+
+
+_DEVICE = ["auto"]
 
 
 def _whisper_segments(media: Path, model_size: str, offset: float) -> list[dict]:
-    segments, _ = _model(model_size).transcribe(str(media), language="en", word_timestamps=True, vad_filter=True)
+    try:
+        segments = _run_whisper(media, model_size, _DEVICE[0])
+    except (RuntimeError, OSError) as e:
+        # An NVIDIA card without NVIDIA's CUDA libraries installed fails here; the processor still works.
+        if _DEVICE[0] == "cpu" or not re.search(r"cuda|cublas|cudnn|\.dll|\.so", str(e), re.I):
+            raise
+        print("Note: the graphics card can't run Whisper here, so captions are timed on the processor (a bit slower).")
+        _DEVICE[0] = "cpu"
+        segments = _run_whisper(media, model_size, "cpu")
     out = []
     for seg in segments:
         words = [
@@ -142,6 +153,11 @@ def _whisper_segments(media: Path, model_size: str, offset: float) -> list[dict]
         if words:
             out.append({"start": round(seg.start + offset, 2), "end": round(seg.end + offset, 2), "text": seg.text.strip(), "words": words})
     return out
+
+
+def _run_whisper(media: Path, model_size: str, device: str) -> list:
+    segments, _ = _model(model_size, device).transcribe(str(media), language="en", word_timestamps=True, vad_filter=True)
+    return list(segments)
 
 
 def _secs(stamp: str) -> float:

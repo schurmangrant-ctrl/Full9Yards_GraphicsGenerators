@@ -241,6 +241,31 @@ def main():
         got = "yellow" if rgb[0] > 150 and rgb[1] > 150 else ["red", "green", "blue"][max(range(3), key=lambda k: rgb[k])]
         assert got == want, (y, want, list(rgb))
     print("mode 4 ok:", out4.name)
+
+    # 5. The same grid recorded without separate mic tracks: each clip stays on
+    #    the host named in the ranges file.
+    video5 = tmp / "five.mkv"
+    subprocess.run([ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(video3), "-map", "0:v", "-map", "0:a:0",
+                    "-c", "copy", str(video5)], check=True)
+    ranges5 = tmp / "picks5.txt"
+    ranges5.write_text("0:02-0:08 [Caden] Caden's take\n0:09-0:15 [Noah] Noah's take\n")
+    patch, client = fake_claude([
+        {"start": 2, "end": 8, "title": "x", "hook_start": 0, "hook_end": 0, "teams": [], "why": "", "caption": "",
+         "hashtags": [], "score": 8},
+        {"start": 9, "end": 15, "title": "y", "hook_start": 0, "hook_end": 0, "teams": [], "why": "", "caption": "",
+         "hashtags": [], "score": 8},
+    ])
+    with patch:
+        run_cli([str(video5), "--ranges", str(ranges5), "--no-review"])
+    approved = json.loads((tmp / "five_clips" / "approved.json").read_text())
+    assert [c["shots"][0][2] for c in approved] == ["Caden", "Noah"], approved
+    for out5, want in zip(sorted((tmp / "five_clips").glob("*.mp4")), ["blue", "green"]):
+        rgb = subprocess.run([ffmpeg_exe(), "-loglevel", "error", "-ss", "1.0", "-i", str(out5), "-frames:v", "1",
+                              "-vf", "crop=10:10:900:300,scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                             capture_output=True, check=True).stdout
+        got = ["red", "green", "blue"][max(range(3), key=lambda k: rgb[k])]
+        assert got == want, (out5.name, want, list(rgb))
+    print("mode 5 ok")
     print("frames:", tmp / "hook.png", tmp / "opening.png")
 
 

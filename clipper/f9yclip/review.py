@@ -39,7 +39,7 @@ def review(video: Path, transcript: dict, clips: list[dict], settings: dict, por
                     "hosts": settings.get("hosts", []),
                     "duration": transcript["duration"],
                     "episode": video.name,
-                    "speaker_switching": bool(cameras),
+                    "speaker_switching": bool(cameras and cameras.get("follow", True)),
                     "games": games or [],
                     "cameras": cameras and {
                         name: {"box": box, "crop_w": cameras["crop_w"], "at": cameras["framing"].get(name, 0.5)}

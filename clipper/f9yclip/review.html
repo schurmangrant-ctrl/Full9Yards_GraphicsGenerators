@@ -148,7 +148,9 @@ function draw() {
       <div class="row">
         <span class="small">Framing</span>
         <select data-f="layout" aria-label="Framing">
-          ${[...(data.speaker_switching ? [['speaker', 'Follow the speaker']] : []), ['blur', 'Whole shot, blurred fill'], ['left', 'Crop left'], ['center', 'Crop center'], ['right', 'Crop right']]
+          ${[...(data.speaker_switching ? [['speaker', 'Follow the speaker']] : []),
+             ...Object.keys(data.cameras || {}).map(h => [`host:${h}`, `${h} only`]),
+             ['blur', 'Whole shot, blurred fill'], ['left', 'Crop left'], ['center', 'Crop center'], ['right', 'Crop right']]
             .map(([v, t]) => `<option value="${v}" ${c.layout === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
       </div>
@@ -227,7 +229,7 @@ player.addEventListener('timeupdate', () => {
 
 document.getElementById('add').onclick = () => {
   const t = player.currentTime || 0;
-  clips.unshift({ start: t, end: Math.min(t + 45, data.duration), title: 'New clip', caption: '', hashtags: [], teams: [], use_hook: false, hook_start: t, hook_end: t, layout: 'blur', speaker: '', keep: true });
+  clips.unshift({ start: t, end: Math.min(t + 45, data.duration), title: 'New clip', caption: '', hashtags: [], teams: [], use_hook: false, hook_start: t, hook_end: t, layout: data.speaker_switching ? 'speaker' : Object.keys(data.cameras || {}).length ? `host:${Object.keys(data.cameras)[0]}` : 'blur', keep: true });
   draw(); play(0);
 };
 

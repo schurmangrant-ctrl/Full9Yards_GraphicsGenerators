@@ -72,8 +72,10 @@ width. The review page has a still of each camera with a gold box on it:
 drag the box over the person. It's saved in `framing.json` and reused next
 episode, so you only touch it when someone sits differently.
 
-Recordings without the separate tracks still work. Their clips use the whole
-shot instead of following the speaker.
+Recordings without the separate mic tracks still work. The camera can't
+follow the talker, so each clip stays on one host: pick **Grant only**,
+**Noah only** and so on under Framing, or name the host in a ranges file:
+`12:30-13:45 [Caden] Bama is back`.
 
 **A free transcript while you record.** The LocalVocal plugin
 (https://github.com/royshil/obs-localvocal) transcribes on your own computer

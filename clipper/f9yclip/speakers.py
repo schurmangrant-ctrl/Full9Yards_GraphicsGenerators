@@ -54,9 +54,10 @@ def mic_levels(video: Path, tracks: dict[str, int], cache: Path | None = None) -
             rows = list(pool.map(read, tracks.values()))
     except subprocess.CalledProcessError:
         raise MicTracksMissing(
-            "Couldn't read a separate track for each mic, so clips will use the whole shot instead of "
-            "following the speaker. Check mic_tracks in settings.json matches the OBS tracks each mic is "
-            "recorded to, and that the file kept all its audio tracks."
+            "Couldn't read a separate track for each mic, so the camera can't follow whoever is talking. "
+            "Each clip stays on one host instead: pick who on the review page, or put [Name] after the "
+            "times in a ranges file. For next time, check mic_tracks in settings.json matches the OBS "
+            "tracks each mic is recorded to, and that the file kept all its audio tracks."
         )
     n = min(len(r) for r in rows)
     levels = np.stack([r[:n] for r in rows])

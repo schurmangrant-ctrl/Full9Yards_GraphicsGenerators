@@ -48,25 +48,34 @@ def main() -> None:
     work = video.parent / f"{video.stem}_clips"
     work.mkdir(exist_ok=True)
 
-    # With each host's mic on its own track, the camera follows whoever is talking.
-    switching = settings.get("speaker_switching")
+    # Each host's camera window in the recording. With each host's mic on its own
+    # track, the camera follows whoever is talking; without, each clip stays on
+    # one host, picked on the review page (or with [Name] in a ranges file).
+    switching = settings.get("speaker_switching") or {}
+    tracks = switching.get("mic_tracks") or {}
+    on_air = [h.strip() for h in args.hosts.split(",")] if args.hosts else list(tracks or settings.get("hosts", []))
     mics = crop = split_crop = cameras = None
-    if switching and switching.get("mic_tracks"):
+    if tracks:
+        unknown = [h for h in on_air if h not in tracks]
+        if unknown:
+            raise SystemExit(f"No mic track set for {', '.join(unknown)} in settings.json.")
         try:
-            on_air = [h.strip() for h in args.hosts.split(",")] if args.hosts else list(switching["mic_tracks"])
-            unknown = [h for h in on_air if h not in switching["mic_tracks"]]
-            if unknown:
-                raise SystemExit(f"No mic track set for {', '.join(unknown)} in settings.json.")
-            mics = mic_levels(video, {h: switching["mic_tracks"][h] for h in on_air}, work / "mic_levels.npz")
-            box_map = boxes(settings, mics[0], *video_size(video))
-            framing_file = HERE / "framing.json"
-            framing = json.loads(framing_file.read_text()) if framing_file.exists() else {}
-            cameras = {"boxes": box_map, "crop_w": vertical_crops(box_map)[0], "framing": framing,
-                       "stills": still_times(*mics)}
-            crop = vertical_crops(box_map, framing)
-            split_crop = vertical_crops(box_map, framing, aspect=9 / 8)
+            mics = mic_levels(video, {h: tracks[h] for h in on_air}, work / "mic_levels.npz")
         except MicTracksMissing as e:
             print(f"Note: {e}")
+    frame_w, frame_h = video_size(video)
+    # A grid of webcams is at least two 1280-wide cameras across; anything
+    # narrower is a single shot, so there are no windows to crop.
+    grid = switching.get("boxes", "grid") != "grid" or frame_w >= 2560
+    if len(on_air) > 1 and grid:
+        box_map = boxes(settings, on_air, frame_w, frame_h)
+        framing_file = HERE / "framing.json"
+        framing = json.loads(framing_file.read_text()) if framing_file.exists() else {}
+        stills = still_times(*mics) if mics else {h: media_duration(video) / 4 for h in on_air}
+        cameras = {"boxes": box_map, "crop_w": vertical_crops(box_map)[0], "framing": framing,
+                   "stills": stills, "follow": bool(mics)}
+        crop = vertical_crops(box_map, framing)
+        split_crop = vertical_crops(box_map, framing, aspect=9 / 8)
 
     if args.ranges:
         clips = read_ranges(args.ranges)
@@ -79,6 +88,8 @@ def main() -> None:
             d["words"] = mine["words"]
             if titles[id(mine)]:
                 d["title"] = titles[id(mine)]
+            if mine.get("layout"):
+                d["layout"] = mine["layout"]
             d["score"] = None
             d["keep"] = True
         candidates = dressed
@@ -98,7 +109,7 @@ def main() -> None:
         candidates = pick_clips(transcript, guide, picks_file, count=args.count, sections=sections)
 
     for c in candidates:
-        c.setdefault("layout", "speaker" if crop else "blur")
+        c.setdefault("layout", "speaker" if mics else f"host:{on_air[0]}" if cameras else "blur")
     if any(c.get("games") or c.get("players") for c in candidates) and not all("cards" in c for c in candidates):
         print("Looking up scores and headshots...")
         played = args.played or date.fromtimestamp(video.stat().st_mtime)
@@ -134,7 +145,15 @@ def main() -> None:
         elif not covers(c.get("words"), lo, c["end"]):
             print(f"Timing captions for {c['title']!r}...")
             c["words"] = words_for_range(video, max(lo - 0.5, 0), c["end"] + 0.5, whisper)
-        if c.get("layout") == "speaker" and mics:
+        if c.get("layout", "").startswith("host:") and cameras and c["layout"][5:] in cameras["boxes"]:
+            # One host for the whole clip: the same crop, without following the mics.
+            host = c["layout"][5:]
+            c["layout"] = "speaker"
+            c["shots"] = [(0.0, c["end"] - c["start"], host)]
+            c["hook_shots"] = [(0.0, c["hook_end"] - c["hook_start"], host)]
+        elif c.get("layout", "").startswith("host:"):
+            c["layout"] = "blur"
+        elif c.get("layout") == "speaker" and mics:
             c["shots"] = shots(*mics, c["start"], c["end"])
             if c.get("use_hook"):
                 c["hook_shots"] = shots(*mics, c["hook_start"], c["hook_end"])
@@ -173,7 +192,8 @@ def covers(words, start: float, end: float) -> bool:
 
 
 def read_ranges(path: Path) -> list[dict]:
-    """Lines like "12:30-13:45" or "1:02:10 - 1:03:00 Giants QB take"."""
+    """Lines like "12:30-13:45", "1:02:10 - 1:03:00 Giants QB take", or with the host
+    to show when there are no separate mic tracks: "12:30-13:45 [Caden] Bama is back"."""
     stamp = r"(\d+(?::\d{1,2}){0,2}(?:\.\d+)?)"
     clips = []
     for line in path.read_text().splitlines():
@@ -182,7 +202,13 @@ def read_ranges(path: Path) -> list[dict]:
             continue
         start, end = to_seconds(m.group(1)), to_seconds(m.group(2))
         if end > start:
-            clips.append({"start": start, "end": end, "title": m.group(3).strip()})
+            rest = m.group(3).strip()
+            clip = {"start": start, "end": end}
+            who = re.match(r"\[([^\]]+)\]\s*(.*)$", rest)
+            if who:
+                clip["layout"], rest = f"host:{who.group(1).strip()}", who.group(2)
+            clip["title"] = rest.strip()
+            clips.append(clip)
     if not clips:
         raise SystemExit(f"No time ranges found in {path.name}. Write one per line, like 12:30-13:45.")
     return clips

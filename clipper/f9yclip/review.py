@@ -5,6 +5,7 @@ page, then returns the clips you kept, with your edits.
 """
 
 import json
+import math
 import mimetypes
 import subprocess
 import threading
@@ -46,7 +47,7 @@ def review(video: Path, transcript: dict, clips: list[dict], settings: dict, por
                         for name, box in cameras["boxes"].items()
                     },
                 }
-                self._send(200, json.dumps(payload).encode(), "application/json")
+                self._send(200, json.dumps(finite(payload)).encode(), "application/json")
             elif self.path == "/video":
                 self._send_video()
             elif self.path.startswith("/still/") and cameras:
@@ -128,3 +129,16 @@ def review(video: Path, transcript: dict, clips: list[dict], settings: dict, por
     done.wait()
     server.shutdown()
     return result["clips"]
+
+
+def finite(x):
+    """NaN and Infinity aren't valid JSON, and one stray value stops the page from loading."""
+    if isinstance(x, float):
+        return x if math.isfinite(x) else None
+    if isinstance(x, dict):
+        return {k: finite(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [finite(v) for v in x]
+    if hasattr(x, "item"):  # numpy numbers
+        return finite(x.item())
+    return x

@@ -32,6 +32,9 @@ def load_transcript_file(path: Path, duration: float) -> dict:
     return {"duration": duration, "segments": segments}
 
 
+SPOKEN_TIME = re.compile(r"^(?=\d+ (?:hour|minute|second))(?:\d+ hours?,? ?)?(?:\d+ minutes?,? ?)?(?:\d+ seconds?)?")
+
+
 def _load_timestamped_text(text: str, path: Path, duration: float) -> dict:
     """YouTube's transcript as text: a time like 1:02:03 or 4:05 on its own line or
     starting a line, then what was said until the next time."""
@@ -40,7 +43,10 @@ def _load_timestamped_text(text: str, path: Path, duration: float) -> dict:
     for line in text.replace("\r\n", "\n").split("\n"):
         m = stamp.match(line)
         if m:
-            marks.append([to_secs(m.group(1)), m.group(2).strip()])
+            # Copied from YouTube's transcript panel, each time is followed by its
+            # spoken form with no space ("0:088 seconds", "1:02:031 hour, 2 minutes, 3 seconds").
+            said = SPOKEN_TIME.sub("", m.group(2), count=1).strip()
+            marks.append([to_secs(m.group(1)), said])
         elif line.strip() and marks:
             marks[-1][1] = (marks[-1][1] + " " + line.strip()).strip()
     if not marks:

@@ -1,0 +1,1224 @@
+[
+ {
+  "name": "Buffalo Bills",
+  "league": "NFL",
+  "abbr": "BUF",
+  "aliases": [],
+  "logo": "nfl-buffalo-bills.png"
+ },
+ {
+  "name": "Miami Dolphins",
+  "league": "NFL",
+  "abbr": "MIA",
+  "aliases": [],
+  "logo": "nfl-miami-dolphins.png"
+ },
+ {
+  "name": "New England Patriots",
+  "league": "NFL",
+  "abbr": "NE",
+  "aliases": [],
+  "logo": "nfl-new-england-patriots.png"
+ },
+ {
+  "name": "New York Jets",
+  "league": "NFL",
+  "abbr": "NYJ",
+  "aliases": [],
+  "logo": "nfl-new-york-jets.png"
+ },
+ {
+  "name": "Baltimore Ravens",
+  "league": "NFL",
+  "abbr": "BAL",
+  "aliases": [],
+  "logo": "nfl-baltimore-ravens.png"
+ },
+ {
+  "name": "Cincinnati Bengals",
+  "league": "NFL",
+  "abbr": "CIN",
+  "aliases": [],
+  "logo": "nfl-cincinnati-bengals.png"
+ },
+ {
+  "name": "Cleveland Browns",
+  "league": "NFL",
+  "abbr": "CLE",
+  "aliases": [],
+  "logo": "nfl-cleveland-browns.png"
+ },
+ {
+  "name": "Pittsburgh Steelers",
+  "league": "NFL",
+  "abbr": "PIT",
+  "aliases": [],
+  "logo": "nfl-pittsburgh-steelers.png"
+ },
+ {
+  "name": "Houston Texans",
+  "league": "NFL",
+  "abbr": "HOU",
+  "aliases": [],
+  "logo": "nfl-houston-texans.png"
+ },
+ {
+  "name": "Indianapolis Colts",
+  "league": "NFL",
+  "abbr": "IND",
+  "aliases": [],
+  "logo": "nfl-indianapolis-colts.png"
+ },
+ {
+  "name": "Jacksonville Jaguars",
+  "league": "NFL",
+  "abbr": "JAX",
+  "aliases": [],
+  "logo": "nfl-jacksonville-jaguars.png"
+ },
+ {
+  "name": "Tennessee Titans",
+  "league": "NFL",
+  "abbr": "TEN",
+  "aliases": [],
+  "logo": "nfl-tennessee-titans.png"
+ },
+ {
+  "name": "Denver Broncos",
+  "league": "NFL",
+  "abbr": "DEN",
+  "aliases": [],
+  "logo": "nfl-denver-broncos.png"
+ },
+ {
+  "name": "Kansas City Chiefs",
+  "league": "NFL",
+  "abbr": "KC",
+  "aliases": [],
+  "logo": "nfl-kansas-city-chiefs.png"
+ },
+ {
+  "name": "Las Vegas Raiders",
+  "league": "NFL",
+  "abbr": "LV",
+  "aliases": [],
+  "logo": "nfl-las-vegas-raiders.png"
+ },
+ {
+  "name": "Los Angeles Chargers",
+  "league": "NFL",
+  "abbr": "LAC",
+  "aliases": [],
+  "logo": "nfl-los-angeles-chargers.png"
+ },
+ {
+  "name": "Dallas Cowboys",
+  "league": "NFL",
+  "abbr": "DAL",
+  "aliases": [],
+  "logo": "nfl-dallas-cowboys.png"
+ },
+ {
+  "name": "New York Giants",
+  "league": "NFL",
+  "abbr": "NYG",
+  "aliases": [],
+  "logo": "nfl-new-york-giants.png"
+ },
+ {
+  "name": "Philadelphia Eagles",
+  "league": "NFL",
+  "abbr": "PHI",
+  "aliases": [],
+  "logo": "nfl-philadelphia-eagles.png"
+ },
+ {
+  "name": "Washington Commanders",
+  "league": "NFL",
+  "abbr": "WAS",
+  "aliases": [],
+  "logo": "nfl-washington-commanders.png"
+ },
+ {
+  "name": "Chicago Bears",
+  "league": "NFL",
+  "abbr": "CHI",
+  "aliases": [],
+  "logo": "nfl-chicago-bears.png"
+ },
+ {
+  "name": "Detroit Lions",
+  "league": "NFL",
+  "abbr": "DET",
+  "aliases": [],
+  "logo": "nfl-detroit-lions.png"
+ },
+ {
+  "name": "Green Bay Packers",
+  "league": "NFL",
+  "abbr": "GB",
+  "aliases": [],
+  "logo": "nfl-green-bay-packers.png"
+ },
+ {
+  "name": "Minnesota Vikings",
+  "league": "NFL",
+  "abbr": "MIN",
+  "aliases": [],
+  "logo": "nfl-minnesota-vikings.png"
+ },
+ {
+  "name": "Atlanta Falcons",
+  "league": "NFL",
+  "abbr": "ATL",
+  "aliases": [],
+  "logo": "nfl-atlanta-falcons.png"
+ },
+ {
+  "name": "Carolina Panthers",
+  "league": "NFL",
+  "abbr": "CAR",
+  "aliases": [],
+  "logo": "nfl-carolina-panthers.png"
+ },
+ {
+  "name": "New Orleans Saints",
+  "league": "NFL",
+  "abbr": "NO",
+  "aliases": [],
+  "logo": "nfl-new-orleans-saints.png"
+ },
+ {
+  "name": "Tampa Bay Buccaneers",
+  "league": "NFL",
+  "abbr": "TB",
+  "aliases": [],
+  "logo": "nfl-tampa-bay-buccaneers.png"
+ },
+ {
+  "name": "Arizona Cardinals",
+  "league": "NFL",
+  "abbr": "ARI",
+  "aliases": [],
+  "logo": "nfl-arizona-cardinals.png"
+ },
+ {
+  "name": "Los Angeles Rams",
+  "league": "NFL",
+  "abbr": "LAR",
+  "aliases": [],
+  "logo": "nfl-los-angeles-rams.png"
+ },
+ {
+  "name": "San Francisco 49ers",
+  "league": "NFL",
+  "abbr": "SF",
+  "aliases": [],
+  "logo": "nfl-san-francisco-49ers.png"
+ },
+ {
+  "name": "Seattle Seahawks",
+  "league": "NFL",
+  "abbr": "SEA",
+  "aliases": [],
+  "logo": "nfl-seattle-seahawks.png"
+ },
+ {
+  "name": "Boston College",
+  "league": "CFB",
+  "abbr": "BC",
+  "aliases": [],
+  "logo": "cfb-boston-college.png"
+ },
+ {
+  "name": "California",
+  "league": "CFB",
+  "abbr": "CAL",
+  "aliases": [
+   "Cal"
+  ],
+  "logo": "cfb-california.png"
+ },
+ {
+  "name": "Clemson",
+  "league": "CFB",
+  "abbr": "CLEM",
+  "aliases": [],
+  "logo": "cfb-clemson.png"
+ },
+ {
+  "name": "Duke",
+  "league": "CFB",
+  "abbr": "DUKE",
+  "aliases": [],
+  "logo": "cfb-duke.png"
+ },
+ {
+  "name": "Florida State",
+  "league": "CFB",
+  "abbr": "FSU",
+  "aliases": [],
+  "logo": "cfb-florida-state.png"
+ },
+ {
+  "name": "Georgia Tech",
+  "league": "CFB",
+  "abbr": "GT",
+  "aliases": [],
+  "logo": "cfb-georgia-tech.png"
+ },
+ {
+  "name": "Louisville",
+  "league": "CFB",
+  "abbr": "LOU",
+  "aliases": [],
+  "logo": "cfb-louisville.png"
+ },
+ {
+  "name": "Miami",
+  "league": "CFB",
+  "abbr": "MIA",
+  "aliases": [
+   "Miami (FL)",
+   "Miami Hurricanes"
+  ],
+  "logo": "cfb-miami.png"
+ },
+ {
+  "name": "NC State",
+  "league": "CFB",
+  "abbr": "NCST",
+  "aliases": [
+   "North Carolina State"
+  ],
+  "logo": "cfb-nc-state.png"
+ },
+ {
+  "name": "North Carolina",
+  "league": "CFB",
+  "abbr": "UNC",
+  "aliases": [],
+  "logo": "cfb-north-carolina.png"
+ },
+ {
+  "name": "Pittsburgh",
+  "league": "CFB",
+  "abbr": "PITT",
+  "aliases": [
+   "Pitt"
+  ],
+  "logo": "cfb-pittsburgh.png"
+ },
+ {
+  "name": "SMU",
+  "league": "CFB",
+  "abbr": "SMU",
+  "aliases": [
+   "Southern Methodist"
+  ],
+  "logo": "cfb-smu.png"
+ },
+ {
+  "name": "Stanford",
+  "league": "CFB",
+  "abbr": "STAN",
+  "aliases": [],
+  "logo": "cfb-stanford.png"
+ },
+ {
+  "name": "Syracuse",
+  "league": "CFB",
+  "abbr": "SYR",
+  "aliases": [],
+  "logo": "cfb-syracuse.png"
+ },
+ {
+  "name": "Virginia",
+  "league": "CFB",
+  "abbr": "UVA",
+  "aliases": [],
+  "logo": "cfb-virginia.png"
+ },
+ {
+  "name": "Virginia Tech",
+  "league": "CFB",
+  "abbr": "VT",
+  "aliases": [],
+  "logo": "cfb-virginia-tech.png"
+ },
+ {
+  "name": "Wake Forest",
+  "league": "CFB",
+  "abbr": "WAKE",
+  "aliases": [],
+  "logo": "cfb-wake-forest.png"
+ },
+ {
+  "name": "Illinois",
+  "league": "CFB",
+  "abbr": "ILL",
+  "aliases": [],
+  "logo": "cfb-illinois.png"
+ },
+ {
+  "name": "Indiana",
+  "league": "CFB",
+  "abbr": "IU",
+  "aliases": [],
+  "logo": "cfb-indiana.png"
+ },
+ {
+  "name": "Iowa",
+  "league": "CFB",
+  "abbr": "IOWA",
+  "aliases": [],
+  "logo": "cfb-iowa.png"
+ },
+ {
+  "name": "Maryland",
+  "league": "CFB",
+  "abbr": "UMD",
+  "aliases": [],
+  "logo": "cfb-maryland.png"
+ },
+ {
+  "name": "Michigan",
+  "league": "CFB",
+  "abbr": "MICH",
+  "aliases": [],
+  "logo": "cfb-michigan.png"
+ },
+ {
+  "name": "Michigan State",
+  "league": "CFB",
+  "abbr": "MSU",
+  "aliases": [],
+  "logo": "cfb-michigan-state.png"
+ },
+ {
+  "name": "Minnesota",
+  "league": "CFB",
+  "abbr": "MINN",
+  "aliases": [],
+  "logo": "cfb-minnesota.png"
+ },
+ {
+  "name": "Nebraska",
+  "league": "CFB",
+  "abbr": "NEB",
+  "aliases": [],
+  "logo": "cfb-nebraska.png"
+ },
+ {
+  "name": "Northwestern",
+  "league": "CFB",
+  "abbr": "NW",
+  "aliases": [],
+  "logo": "cfb-northwestern.png"
+ },
+ {
+  "name": "Ohio State",
+  "league": "CFB",
+  "abbr": "OSU",
+  "aliases": [],
+  "logo": "cfb-ohio-state.png"
+ },
+ {
+  "name": "Oregon",
+  "league": "CFB",
+  "abbr": "ORE",
+  "aliases": [],
+  "logo": "cfb-oregon.png"
+ },
+ {
+  "name": "Penn State",
+  "league": "CFB",
+  "abbr": "PSU",
+  "aliases": [],
+  "logo": "cfb-penn-state.png"
+ },
+ {
+  "name": "Purdue",
+  "league": "CFB",
+  "abbr": "PUR",
+  "aliases": [],
+  "logo": "cfb-purdue.png"
+ },
+ {
+  "name": "Rutgers",
+  "league": "CFB",
+  "abbr": "RUTG",
+  "aliases": [],
+  "logo": "cfb-rutgers.png"
+ },
+ {
+  "name": "UCLA",
+  "league": "CFB",
+  "abbr": "UCLA",
+  "aliases": [],
+  "logo": "cfb-ucla.png"
+ },
+ {
+  "name": "USC",
+  "league": "CFB",
+  "abbr": "USC",
+  "aliases": [
+   "Southern California"
+  ],
+  "logo": "cfb-usc.png"
+ },
+ {
+  "name": "Washington",
+  "league": "CFB",
+  "abbr": "WASH",
+  "aliases": [],
+  "logo": "cfb-washington.png"
+ },
+ {
+  "name": "Wisconsin",
+  "league": "CFB",
+  "abbr": "WISC",
+  "aliases": [],
+  "logo": "cfb-wisconsin.png"
+ },
+ {
+  "name": "Arizona",
+  "league": "CFB",
+  "abbr": "ARIZ",
+  "aliases": [],
+  "logo": "cfb-arizona.png"
+ },
+ {
+  "name": "Arizona State",
+  "league": "CFB",
+  "abbr": "ASU",
+  "aliases": [],
+  "logo": "cfb-arizona-state.png"
+ },
+ {
+  "name": "Baylor",
+  "league": "CFB",
+  "abbr": "BAY",
+  "aliases": [],
+  "logo": "cfb-baylor.png"
+ },
+ {
+  "name": "BYU",
+  "league": "CFB",
+  "abbr": "BYU",
+  "aliases": [
+   "Brigham Young"
+  ],
+  "logo": "cfb-byu.png"
+ },
+ {
+  "name": "Cincinnati",
+  "league": "CFB",
+  "abbr": "CIN",
+  "aliases": [],
+  "logo": "cfb-cincinnati.png"
+ },
+ {
+  "name": "Colorado",
+  "league": "CFB",
+  "abbr": "COLO",
+  "aliases": [],
+  "logo": "cfb-colorado.png"
+ },
+ {
+  "name": "Houston",
+  "league": "CFB",
+  "abbr": "HOU",
+  "aliases": [],
+  "logo": "cfb-houston.png"
+ },
+ {
+  "name": "Iowa State",
+  "league": "CFB",
+  "abbr": "ISU",
+  "aliases": [],
+  "logo": "cfb-iowa-state.png"
+ },
+ {
+  "name": "Kansas",
+  "league": "CFB",
+  "abbr": "KU",
+  "aliases": [],
+  "logo": "cfb-kansas.png"
+ },
+ {
+  "name": "Kansas State",
+  "league": "CFB",
+  "abbr": "KSU",
+  "aliases": [],
+  "logo": "cfb-kansas-state.png"
+ },
+ {
+  "name": "Oklahoma State",
+  "league": "CFB",
+  "abbr": "OKST",
+  "aliases": [],
+  "logo": "cfb-oklahoma-state.png"
+ },
+ {
+  "name": "TCU",
+  "league": "CFB",
+  "abbr": "TCU",
+  "aliases": [
+   "Texas Christian"
+  ],
+  "logo": "cfb-tcu.png"
+ },
+ {
+  "name": "Texas Tech",
+  "league": "CFB",
+  "abbr": "TTU",
+  "aliases": [],
+  "logo": "cfb-texas-tech.png"
+ },
+ {
+  "name": "UCF",
+  "league": "CFB",
+  "abbr": "UCF",
+  "aliases": [
+   "Central Florida"
+  ],
+  "logo": "cfb-ucf.png"
+ },
+ {
+  "name": "Utah",
+  "league": "CFB",
+  "abbr": "UTAH",
+  "aliases": [],
+  "logo": "cfb-utah.png"
+ },
+ {
+  "name": "West Virginia",
+  "league": "CFB",
+  "abbr": "WVU",
+  "aliases": [],
+  "logo": "cfb-west-virginia.png"
+ },
+ {
+  "name": "Alabama",
+  "league": "CFB",
+  "abbr": "BAMA",
+  "aliases": [],
+  "logo": "cfb-alabama.png"
+ },
+ {
+  "name": "Arkansas",
+  "league": "CFB",
+  "abbr": "ARK",
+  "aliases": [],
+  "logo": "cfb-arkansas.png"
+ },
+ {
+  "name": "Auburn",
+  "league": "CFB",
+  "abbr": "AUB",
+  "aliases": [],
+  "logo": "cfb-auburn.png"
+ },
+ {
+  "name": "Florida",
+  "league": "CFB",
+  "abbr": "UF",
+  "aliases": [],
+  "logo": "cfb-florida.png"
+ },
+ {
+  "name": "Georgia",
+  "league": "CFB",
+  "abbr": "UGA",
+  "aliases": [],
+  "logo": "cfb-georgia.png"
+ },
+ {
+  "name": "Kentucky",
+  "league": "CFB",
+  "abbr": "UK",
+  "aliases": [],
+  "logo": "cfb-kentucky.png"
+ },
+ {
+  "name": "LSU",
+  "league": "CFB",
+  "abbr": "LSU",
+  "aliases": [
+   "Louisiana State"
+  ],
+  "logo": "cfb-lsu.png"
+ },
+ {
+  "name": "Mississippi State",
+  "league": "CFB",
+  "abbr": "MSST",
+  "aliases": [],
+  "logo": "cfb-mississippi-state.png"
+ },
+ {
+  "name": "Missouri",
+  "league": "CFB",
+  "abbr": "MIZ",
+  "aliases": [],
+  "logo": "cfb-missouri.png"
+ },
+ {
+  "name": "Oklahoma",
+  "league": "CFB",
+  "abbr": "OU",
+  "aliases": [],
+  "logo": "cfb-oklahoma.png"
+ },
+ {
+  "name": "Ole Miss",
+  "league": "CFB",
+  "abbr": "MISS",
+  "aliases": [
+   "Mississippi"
+  ],
+  "logo": "cfb-ole-miss.png"
+ },
+ {
+  "name": "South Carolina",
+  "league": "CFB",
+  "abbr": "SC",
+  "aliases": [],
+  "logo": "cfb-south-carolina.png"
+ },
+ {
+  "name": "Tennessee",
+  "league": "CFB",
+  "abbr": "TENN",
+  "aliases": [],
+  "logo": "cfb-tennessee.png"
+ },
+ {
+  "name": "Texas",
+  "league": "CFB",
+  "abbr": "TEX",
+  "aliases": [],
+  "logo": "cfb-texas.png"
+ },
+ {
+  "name": "Texas A&M",
+  "league": "CFB",
+  "abbr": "TAMU",
+  "aliases": [],
+  "logo": "cfb-texas-a-m.png"
+ },
+ {
+  "name": "Vanderbilt",
+  "league": "CFB",
+  "abbr": "VAN",
+  "aliases": [],
+  "logo": "cfb-vanderbilt.png"
+ },
+ {
+  "name": "Army",
+  "league": "CFB",
+  "abbr": "ARMY",
+  "aliases": [],
+  "logo": "cfb-army.png"
+ },
+ {
+  "name": "Charlotte",
+  "league": "CFB",
+  "abbr": "CLT",
+  "aliases": [],
+  "logo": "cfb-charlotte.png"
+ },
+ {
+  "name": "East Carolina",
+  "league": "CFB",
+  "abbr": "ECU",
+  "aliases": [],
+  "logo": "cfb-east-carolina.png"
+ },
+ {
+  "name": "Florida Atlantic",
+  "league": "CFB",
+  "abbr": "FAU",
+  "aliases": [],
+  "logo": "cfb-florida-atlantic.png"
+ },
+ {
+  "name": "Memphis",
+  "league": "CFB",
+  "abbr": "MEM",
+  "aliases": [],
+  "logo": "cfb-memphis.png"
+ },
+ {
+  "name": "Navy",
+  "league": "CFB",
+  "abbr": "NAVY",
+  "aliases": [],
+  "logo": "cfb-navy.png"
+ },
+ {
+  "name": "North Texas",
+  "league": "CFB",
+  "abbr": "UNT",
+  "aliases": [],
+  "logo": "cfb-north-texas.png"
+ },
+ {
+  "name": "Rice",
+  "league": "CFB",
+  "abbr": "RICE",
+  "aliases": [],
+  "logo": "cfb-rice.png"
+ },
+ {
+  "name": "South Florida",
+  "league": "CFB",
+  "abbr": "USF",
+  "aliases": [],
+  "logo": "cfb-south-florida.png"
+ },
+ {
+  "name": "Temple",
+  "league": "CFB",
+  "abbr": "TEM",
+  "aliases": [],
+  "logo": "cfb-temple.png"
+ },
+ {
+  "name": "Tulane",
+  "league": "CFB",
+  "abbr": "TUL",
+  "aliases": [],
+  "logo": "cfb-tulane.png"
+ },
+ {
+  "name": "Tulsa",
+  "league": "CFB",
+  "abbr": "TLSA",
+  "aliases": [],
+  "logo": "cfb-tulsa.png"
+ },
+ {
+  "name": "UAB",
+  "league": "CFB",
+  "abbr": "UAB",
+  "aliases": [],
+  "logo": "cfb-uab.png"
+ },
+ {
+  "name": "UTSA",
+  "league": "CFB",
+  "abbr": "UTSA",
+  "aliases": [],
+  "logo": "cfb-utsa.png"
+ },
+ {
+  "name": "Delaware",
+  "league": "CFB",
+  "abbr": "DEL",
+  "aliases": [],
+  "logo": "cfb-delaware.png"
+ },
+ {
+  "name": "Florida International",
+  "league": "CFB",
+  "abbr": "FIU",
+  "aliases": [
+   "FIU"
+  ],
+  "logo": "cfb-florida-international.png"
+ },
+ {
+  "name": "Jacksonville State",
+  "league": "CFB",
+  "abbr": "JVST",
+  "aliases": [],
+  "logo": "cfb-jacksonville-state.png"
+ },
+ {
+  "name": "Kennesaw State",
+  "league": "CFB",
+  "abbr": "KENN",
+  "aliases": [],
+  "logo": "cfb-kennesaw-state.png"
+ },
+ {
+  "name": "Liberty",
+  "league": "CFB",
+  "abbr": "LIB",
+  "aliases": [],
+  "logo": "cfb-liberty.png"
+ },
+ {
+  "name": "Middle Tennessee",
+  "league": "CFB",
+  "abbr": "MTSU",
+  "aliases": [],
+  "logo": "cfb-middle-tennessee.png"
+ },
+ {
+  "name": "Missouri State",
+  "league": "CFB",
+  "abbr": "MOST",
+  "aliases": [],
+  "logo": "cfb-missouri-state.png"
+ },
+ {
+  "name": "New Mexico State",
+  "league": "CFB",
+  "abbr": "NMSU",
+  "aliases": [],
+  "logo": "cfb-new-mexico-state.png"
+ },
+ {
+  "name": "Sam Houston",
+  "league": "CFB",
+  "abbr": "SHSU",
+  "aliases": [],
+  "logo": "cfb-sam-houston.png"
+ },
+ {
+  "name": "Western Kentucky",
+  "league": "CFB",
+  "abbr": "WKU",
+  "aliases": [],
+  "logo": "cfb-western-kentucky.png"
+ },
+ {
+  "name": "Akron",
+  "league": "CFB",
+  "abbr": "AKR",
+  "aliases": [],
+  "logo": "cfb-akron.png"
+ },
+ {
+  "name": "Ball State",
+  "league": "CFB",
+  "abbr": "BALL",
+  "aliases": [],
+  "logo": "cfb-ball-state.png"
+ },
+ {
+  "name": "Bowling Green",
+  "league": "CFB",
+  "abbr": "BGSU",
+  "aliases": [],
+  "logo": "cfb-bowling-green.png"
+ },
+ {
+  "name": "Buffalo",
+  "league": "CFB",
+  "abbr": "BUFF",
+  "aliases": [],
+  "logo": "cfb-buffalo.png"
+ },
+ {
+  "name": "Central Michigan",
+  "league": "CFB",
+  "abbr": "CMU",
+  "aliases": [],
+  "logo": "cfb-central-michigan.png"
+ },
+ {
+  "name": "Eastern Michigan",
+  "league": "CFB",
+  "abbr": "EMU",
+  "aliases": [],
+  "logo": "cfb-eastern-michigan.png"
+ },
+ {
+  "name": "Kent State",
+  "league": "CFB",
+  "abbr": "KENT",
+  "aliases": [],
+  "logo": "cfb-kent-state.png"
+ },
+ {
+  "name": "Miami (OH)",
+  "league": "CFB",
+  "abbr": "M-OH",
+  "aliases": [
+   "Miami Ohio"
+  ],
+  "logo": "cfb-miami-oh.png"
+ },
+ {
+  "name": "Ohio",
+  "league": "CFB",
+  "abbr": "OHIO",
+  "aliases": [],
+  "logo": "cfb-ohio.png"
+ },
+ {
+  "name": "Sacramento State",
+  "league": "CFB",
+  "abbr": "SAC",
+  "aliases": [],
+  "logo": "cfb-sacramento-state.png"
+ },
+ {
+  "name": "Toledo",
+  "league": "CFB",
+  "abbr": "TOL",
+  "aliases": [],
+  "logo": "cfb-toledo.png"
+ },
+ {
+  "name": "UMass",
+  "league": "CFB",
+  "abbr": "UMASS",
+  "aliases": [
+   "Massachusetts"
+  ],
+  "logo": "cfb-umass.png"
+ },
+ {
+  "name": "Western Michigan",
+  "league": "CFB",
+  "abbr": "WMU",
+  "aliases": [],
+  "logo": "cfb-western-michigan.png"
+ },
+ {
+  "name": "Air Force",
+  "league": "CFB",
+  "abbr": "AF",
+  "aliases": [],
+  "logo": "cfb-air-force.png"
+ },
+ {
+  "name": "Hawaii",
+  "league": "CFB",
+  "abbr": "HAW",
+  "aliases": [],
+  "logo": "cfb-hawaii.png"
+ },
+ {
+  "name": "Nevada",
+  "league": "CFB",
+  "abbr": "NEV",
+  "aliases": [],
+  "logo": "cfb-nevada.png"
+ },
+ {
+  "name": "New Mexico",
+  "league": "CFB",
+  "abbr": "UNM",
+  "aliases": [],
+  "logo": "cfb-new-mexico.png"
+ },
+ {
+  "name": "Northern Illinois",
+  "league": "CFB",
+  "abbr": "NIU",
+  "aliases": [],
+  "logo": "cfb-northern-illinois.png"
+ },
+ {
+  "name": "San Jose State",
+  "league": "CFB",
+  "abbr": "SJSU",
+  "aliases": [],
+  "logo": "cfb-san-jose-state.png"
+ },
+ {
+  "name": "UNLV",
+  "league": "CFB",
+  "abbr": "UNLV",
+  "aliases": [],
+  "logo": "cfb-unlv.png"
+ },
+ {
+  "name": "UTEP",
+  "league": "CFB",
+  "abbr": "UTEP",
+  "aliases": [],
+  "logo": "cfb-utep.png"
+ },
+ {
+  "name": "Wyoming",
+  "league": "CFB",
+  "abbr": "WYO",
+  "aliases": [],
+  "logo": "cfb-wyoming.png"
+ },
+ {
+  "name": "Boise State",
+  "league": "CFB",
+  "abbr": "BSU",
+  "aliases": [],
+  "logo": "cfb-boise-state.png"
+ },
+ {
+  "name": "Colorado State",
+  "league": "CFB",
+  "abbr": "CSU",
+  "aliases": [],
+  "logo": "cfb-colorado-state.png"
+ },
+ {
+  "name": "Fresno State",
+  "league": "CFB",
+  "abbr": "FRES",
+  "aliases": [],
+  "logo": "cfb-fresno-state.png"
+ },
+ {
+  "name": "Oregon State",
+  "league": "CFB",
+  "abbr": "ORST",
+  "aliases": [],
+  "logo": "cfb-oregon-state.png"
+ },
+ {
+  "name": "San Diego State",
+  "league": "CFB",
+  "abbr": "SDSU",
+  "aliases": [],
+  "logo": "cfb-san-diego-state.png"
+ },
+ {
+  "name": "Utah State",
+  "league": "CFB",
+  "abbr": "USU",
+  "aliases": [],
+  "logo": "cfb-utah-state.png"
+ },
+ {
+  "name": "Washington State",
+  "league": "CFB",
+  "abbr": "WSU",
+  "aliases": [],
+  "logo": "cfb-washington-state.png"
+ },
+ {
+  "name": "Texas State",
+  "league": "CFB",
+  "abbr": "TXST",
+  "aliases": [],
+  "logo": "cfb-texas-state.png"
+ },
+ {
+  "name": "Appalachian State",
+  "league": "CFB",
+  "abbr": "APP",
+  "aliases": [],
+  "logo": "cfb-appalachian-state.png"
+ },
+ {
+  "name": "Arkansas State",
+  "league": "CFB",
+  "abbr": "ARST",
+  "aliases": [],
+  "logo": "cfb-arkansas-state.png"
+ },
+ {
+  "name": "Coastal Carolina",
+  "league": "CFB",
+  "abbr": "CCU",
+  "aliases": [],
+  "logo": "cfb-coastal-carolina.png"
+ },
+ {
+  "name": "Georgia Southern",
+  "league": "CFB",
+  "abbr": "GASO",
+  "aliases": [],
+  "logo": "cfb-georgia-southern.png"
+ },
+ {
+  "name": "Georgia State",
+  "league": "CFB",
+  "abbr": "GSU",
+  "aliases": [],
+  "logo": "cfb-georgia-state.png"
+ },
+ {
+  "name": "James Madison",
+  "league": "CFB",
+  "abbr": "JMU",
+  "aliases": [],
+  "logo": "cfb-james-madison.png"
+ },
+ {
+  "name": "Louisiana",
+  "league": "CFB",
+  "abbr": "ULL",
+  "aliases": [
+   "Louisiana-Lafayette",
+   "UL Lafayette"
+  ],
+  "logo": "cfb-louisiana.png"
+ },
+ {
+  "name": "Louisiana Tech",
+  "league": "CFB",
+  "abbr": "LT",
+  "aliases": [],
+  "logo": "cfb-louisiana-tech.png"
+ },
+ {
+  "name": "UL Monroe",
+  "league": "CFB",
+  "abbr": "ULM",
+  "aliases": [
+   "Louisiana-Monroe",
+   "Louisiana Monroe"
+  ],
+  "logo": "cfb-ul-monroe.png"
+ },
+ {
+  "name": "Marshall",
+  "league": "CFB",
+  "abbr": "MRSH",
+  "aliases": [],
+  "logo": "cfb-marshall.png"
+ },
+ {
+  "name": "Old Dominion",
+  "league": "CFB",
+  "abbr": "ODU",
+  "aliases": [],
+  "logo": "cfb-old-dominion.png"
+ },
+ {
+  "name": "South Alabama",
+  "league": "CFB",
+  "abbr": "USA",
+  "aliases": [],
+  "logo": "cfb-south-alabama.png"
+ },
+ {
+  "name": "Southern Miss",
+  "league": "CFB",
+  "abbr": "USM",
+  "aliases": [
+   "Southern Mississippi"
+  ],
+  "logo": "cfb-southern-miss.png"
+ },
+ {
+  "name": "Troy",
+  "league": "CFB",
+  "abbr": "TROY",
+  "aliases": [],
+  "logo": "cfb-troy.png"
+ },
+ {
+  "name": "Notre Dame",
+  "league": "CFB",
+  "abbr": "ND",
+  "aliases": [],
+  "logo": "cfb-notre-dame.png"
+ },
+ {
+  "name": "UConn",
+  "league": "CFB",
+  "abbr": "CONN",
+  "aliases": [
+   "Connecticut"
+  ],
+  "logo": "cfb-uconn.png"
+ }
+]

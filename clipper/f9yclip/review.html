@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F9Y Clip Review</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@800;900&family=Barlow:wght@400;600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --black: #101311; --cream: #EFEDE7; --green: #3F7954; --gold: #D4AF37;
+    --white: #fff; --dim: #5c5c58; --rule: #d8d5cc;
+    --display: 'Barlow Condensed', 'Arial Narrow', Impact, sans-serif;
+    --body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'DM Mono', ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: var(--black); font: 15px/1.5 var(--body); }
+  header { background: var(--black); color: var(--cream); padding: 14px 20px; border-bottom: 5px solid var(--green);
+           display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font: 900 28px/1 var(--display); text-transform: uppercase; margin: 0; letter-spacing: .02em; }
+  header .meta { font: 12px var(--mono); color: #a9a7a0; flex: 1; min-width: 200px; }
+  button { font: 600 14px var(--body); border: 1px solid var(--black); background: var(--white); color: var(--black);
+           padding: 6px 12px; border-radius: 3px; cursor: pointer; }
+  button.primary { background: var(--green); border-color: var(--green); color: var(--white); }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .layout { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(0, 1.2fr); gap: 20px; padding: 20px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .player { position: sticky; top: 16px; display: grid; gap: 10px; }
+  video { width: 100%; background: #000; border-radius: 3px; }
+  .now { font: 13px var(--mono); color: var(--dim); }
+  .list { display: grid; gap: 12px; min-width: 0; }
+  .card { background: var(--white); border: 1px solid var(--rule); border-left: 5px solid var(--rule); padding: 14px; display: grid; gap: 10px; }
+  .card.kept { border-left-color: var(--green); }
+  .card.playing { outline: 2px solid var(--gold); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .rank { font: 900 26px/1 var(--display); width: 36px; }
+  .score { font: 12px var(--mono); padding: 2px 8px; border-radius: 10px; background: var(--cream); }
+  .len { font: 12px var(--mono); color: var(--dim); }
+  label.keep { display: flex; gap: 6px; align-items: center; font-weight: 600; margin-left: auto; cursor: pointer; }
+  input[type=text], textarea, select, input[type=number] { font: 14px var(--body); border: 1px solid var(--rule); border-radius: 3px; padding: 6px 8px; background: var(--white); color: var(--black); }
+  input.title { font: 800 20px var(--display); text-transform: uppercase; flex: 1; min-width: 200px; }
+  input[type=number] { width: 92px; font-family: var(--mono); }
+  textarea { width: 100%; resize: vertical; min-height: 52px; }
+  .why { color: var(--dim); font-size: 14px; }
+  .said { font-size: 14px; background: var(--cream); padding: 8px 10px; max-height: 130px; overflow: auto; }
+  .small { font: 12px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+  .framing { display: grid; gap: 8px; }
+  .framing h2 { font: 900 20px/1 var(--display); text-transform: uppercase; margin: 6px 0 0; }
+  .cams { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .cam { display: grid; gap: 4px; }
+  .shot { position: relative; background: #000; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 3px; cursor: ew-resize; touch-action: none; }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; pointer-events: none; }
+  .shot .box { position: absolute; top: 0; bottom: 0; border: 3px solid var(--gold); box-shadow: 0 0 0 9999px rgba(0,0,0,.55); }
+  .shot:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .done { padding: 60px 20px; text-align: center; font: 900 36px var(--display); text-transform: uppercase; }
+</style>
+</head>
+<body>
+<header>
+  <h1>F9Y Clip Review</h1>
+  <div class="meta" id="meta">Loading…</div>
+  <button id="add">Add clip at player time</button>
+  <button class="primary" id="render">Render kept clips</button>
+</header>
+<div class="layout" id="main">
+  <div class="player">
+    <video id="player" src="/video" controls preload="metadata"></video>
+    <div class="now" id="now">Press Play on a clip to preview it.</div>
+    <div class="framing" id="framing" hidden>
+      <h2>Clip framing</h2>
+      <div class="small">Drag each gold box over the person. It's remembered for next time.</div>
+      <div class="cams" id="cams"></div>
+    </div>
+  </div>
+  <div class="list" id="list"></div>
+</div>
+<datalist id="hosts"></datalist>
+
+<script>
+let data, clips = [], stopAt = null, playingIndex = null;
+const player = document.getElementById('player');
+const list = document.getElementById('list');
+
+const fmt = s => { s = Math.max(0, s); const m = Math.floor(s / 60); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${(s % 60).toFixed(1).padStart(4, '0')}`; };
+const said = c => data.segments.filter(s => s.end > c.start && s.start < c.end).map(s => s.text).join(' ');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+fetch('/data').then(r => r.json()).then(d => {
+  data = d;
+  clips = d.clips.map(c => ({ layout: 'blur', speaker: '', keep: c.keep ?? (c.score ?? 0) >= 7, ...c }));
+  document.getElementById('hosts').innerHTML = d.hosts.map(h => `<option value="${esc(h)}">`).join('');
+  if (d.cameras) drawFraming(d.cameras);
+  draw();
+});
+
+const framing = {};
+function drawFraming(cams) {
+  document.getElementById('framing').hidden = false;
+  const wrap = document.getElementById('cams');
+  wrap.innerHTML = Object.entries(cams).map(([name, c]) => `
+    <div class="cam"><span class="small">${esc(name)}</span>
+      <div class="shot" tabindex="0" role="slider" aria-label="${esc(name)} crop position" data-name="${esc(name)}">
+        <img src="/still/${encodeURIComponent(name)}" alt=""><div class="box"></div>
+      </div></div>`).join('');
+  wrap.querySelectorAll('.shot').forEach(shot => {
+    const name = shot.dataset.name, c = cams[name], box = shot.querySelector('.box');
+    const share = c.crop_w / c.box[2];
+    const place = at => {
+      framing[name] = Math.min(1, Math.max(0, at));
+      box.style.width = `${share * 100}%`;
+      box.style.left = `${framing[name] * (1 - share) * 100}%`;
+      shot.setAttribute('aria-valuenow', Math.round(framing[name] * 100));
+    };
+    const fromPointer = e => {
+      const r = shot.getBoundingClientRect();
+      place(((e.clientX - r.left) / r.width - share / 2) / (1 - share));
+    };
+    shot.addEventListener('pointerdown', e => { shot.setPointerCapture(e.pointerId); fromPointer(e); });
+    shot.addEventListener('pointermove', e => { if (shot.hasPointerCapture(e.pointerId)) fromPointer(e); });
+    shot.addEventListener('keydown', e => {
+      const step = { ArrowLeft: -0.05, ArrowRight: 0.05 }[e.key];
+      if (step) { e.preventDefault(); place(framing[name] + step); }
+    });
+    place(c.at);
+  });
+}
+
+function draw() {
+  const kept = clips.filter(c => c.keep).length;
+  document.getElementById('meta').textContent = `${data.episode} · ${clips.length} candidates · ${kept} kept`;
+  list.innerHTML = clips.map((c, i) => `
+    <div class="card ${c.keep ? 'kept' : ''} ${i === playingIndex ? 'playing' : ''}" data-i="${i}">
+      <div class="row">
+        <span class="rank">${i + 1}</span>
+        ${c.score != null ? `<span class="score">score ${c.score}/10</span>` : ''}${c.section ? `<span class="score">${esc(c.section)}</span>` : ''}
+        <span class="len">${fmt(c.start)} · ${(c.end - c.start).toFixed(0)}s</span>
+        <label class="keep"><input type="checkbox" data-f="keep" ${c.keep ? 'checked' : ''}> Keep</label>
+      </div>
+      <div class="row"><input class="title" type="text" data-f="title" value="${esc(c.title)}" aria-label="On-screen hook"></div>
+      ${c.why ? `<div class="why">${esc(c.why)}</div>` : ''}
+      <div class="row">
+        <button data-a="play">▶ Play</button>
+        <span class="small">Start</span>
+        <button data-a="s-">−1s</button><input type="number" step="0.1" data-f="start" value="${c.start.toFixed(1)}" aria-label="Start seconds"><button data-a="s+">+1s</button>
+        <span class="small">End</span>
+        <button data-a="e-">−1s</button><input type="number" step="0.1" data-f="end" value="${c.end.toFixed(1)}" aria-label="End seconds"><button data-a="e+">+1s</button>
+      </div>
+      <div class="row">
+        <span class="small">Framing</span>
+        <select data-f="layout" aria-label="Framing">
+          ${[...(data.speaker_switching ? [['speaker', 'Follow the speaker']] : []),
+             ...(Object.keys(data.cameras || {}).length > 1 ? [['cuts', 'Cut between hosts']] : []),
+             ...Object.keys(data.cameras || {}).map(h => [`host:${h}`, `${h} only`]),
+             ['blur', 'Whole shot, blurred fill'], ['left', 'Crop left'], ['center', 'Crop center'], ['right', 'Crop right']]
+            .map(([v, t]) => `<option value="${v}" ${c.layout === v ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      ${c.layout === 'cuts' ? `<div class="row"><span class="small">Cuts</span>
+        ${(c.cuts || []).map((k, j) => `<span class="len">${fmt(k.at)} ${esc(k.host)}${j ? ` <button data-a="uncut" data-j="${j}" aria-label="Remove cut">✕</button>` : ''}</span>`).join(' · ')}
+      </div>
+      <div class="row"><span class="small">Play the clip and cut to</span>
+        ${Object.keys(data.cameras).map(h => `<button data-a="cut" data-h="${esc(h)}">${esc(h)} here</button>`).join('')}
+      </div>` : ''}
+      <div class="row">
+        <label class="keep" style="margin-left:0"><input type="checkbox" data-f="use_hook" ${c.use_hook ? 'checked' : ''}> Open with hook</label>
+        <button data-a="hook">▶ Hook</button>
+        <input type="number" step="0.1" data-f="hook_start" value="${(c.hook_start ?? 0).toFixed(1)}" aria-label="Hook start seconds">
+        <span class="small">to</span>
+        <input type="number" step="0.1" data-f="hook_end" value="${(c.hook_end ?? 0).toFixed(1)}" aria-label="Hook end seconds">
+      </div>
+      <div class="row">
+        <span class="small">Voice</span>
+        <select data-f="voice" aria-label="Voice">
+          ${[['normal', 'Normal'], ['pitch', 'Pitched up'], ['fast', 'Sped up']]
+            .map(([v, t]) => `<option value="${v}" ${(c.voice || 'normal') === v ? 'selected' : ''}>${t}</option>`).join('')}
+        </select>
+        <span class="small">Game footage</span>
+        <select data-f="game" aria-label="Game footage" ${data.games.length ? '' : 'disabled title="Put downloaded game clips in a game_footage folder next to the episode"'}>
+          <option value="">${data.games.length ? 'None' : 'None (no game_footage folder)'}</option>
+          ${data.games.map(g => `<option value="${esc(g)}" ${c.game === g ? 'selected' : ''}>${esc(g)}</option>`).join('')}
+        </select>
+        ${c.game ? `<span class="small">from</span><input type="number" step="1" data-f="game_from" value="${(c.game_from ?? 0).toFixed(0)}" aria-label="Game footage start seconds">` : ''}
+      </div>
+      ${(c.cards || []).length ? `<div class="row"><span class="small">Pop-ups</span>
+        ${c.cards.map((k, j) => `<label class="keep" style="margin-left:0;font-weight:400"><input type="checkbox" data-card="${j}" ${k.keep !== false ? 'checked' : ''}>
+          ${k.kind === 'score' ? 'Score' : 'Player'}: ${esc(k.label)} <span class="len">at ${fmt(k.at)}</span></label>`).join('')}
+      </div>` : ''}
+      <div class="said">${esc(said(c))}</div>
+      <textarea data-f="caption" aria-label="Post caption">${esc(c.caption)}</textarea>
+    </div>`).join('');
+}
+
+list.addEventListener('change', e => {
+  const card = e.target.closest('.card'); if (!card) return;
+  const c = clips[+card.dataset.i], f = e.target.dataset.f;
+  if (e.target.dataset.card != null) { c.cards[+e.target.dataset.card].keep = e.target.checked; return; }
+  if (f === 'keep' || f === 'use_hook') c[f] = e.target.checked;
+  else if (f === 'game') c.game = e.target.value;
+  else if (['start', 'end', 'hook_start', 'hook_end', 'game_from'].includes(f)) c[f] = Math.max(0, parseFloat(e.target.value) || 0);
+  else if (f === 'teams') {
+    const before = Object.fromEntries((c.teams || []).map(t => [t.name.toLowerCase(), t]));
+    c.teams = e.target.value.split(',').map(x => x.trim()).filter(Boolean)
+      .map(n => before[n.toLowerCase()] || { name: n, at: c.start });
+    return;
+  }
+  else if (f === 'layout') {
+    c.layout = e.target.value;
+    if (c.layout === 'cuts' && !(c.cuts || []).length) c.cuts = [{ at: c.start, host: Object.keys(data.cameras)[0] }];
+  }
+  else if (f) { c[f] = e.target.value; return; }
+  draw();
+});
+
+list.addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  const i = +btn.closest('.card').dataset.i, c = clips[i];
+  const a = btn.dataset.a;
+  if (a === 'play') return play(i);
+  if (a === 'cut') {
+    // Cut at the playhead; before the clip starts, change who opens it.
+    const t = playingIndex === i && player.currentTime > c.start ? Math.min(player.currentTime, c.end) : c.start;
+    c.cuts = [...(c.cuts || []).filter(k => Math.abs(k.at - t) > 0.3 && (t > c.start || k.at > c.start)), { at: +t.toFixed(2), host: btn.dataset.h }]
+      .sort((x, y) => x.at - y.at);
+    return draw();
+  }
+  if (a === 'uncut') { c.cuts.splice(+btn.dataset.j, 1); return draw(); }
+  if (a === 'hook') { playingIndex = i; stopAt = c.hook_end; player.currentTime = c.hook_start; player.play(); return draw(); }
+  if (a === 's-') c.start = Math.max(0, c.start - 1);
+  if (a === 's+') c.start = Math.min(c.end - 1, c.start + 1);
+  if (a === 'e-') c.end = Math.max(c.start + 1, c.end - 1);
+  if (a === 'e+') c.end = Math.min(data.duration, c.end + 1);
+  draw();
+  if (a.startsWith('s')) play(i);
+  if (a.startsWith('e')) { playingIndex = i; stopAt = c.end; player.currentTime = Math.max(c.start, c.end - 4); player.play(); draw(); }
+});
+
+function play(i) {
+  const c = clips[i];
+  playingIndex = i; stopAt = c.end;
+  player.currentTime = c.start; player.play();
+  document.getElementById('now').textContent = `Playing clip ${i + 1}: ${fmt(c.start)} to ${fmt(c.end)}`;
+  draw();
+}
+
+player.addEventListener('timeupdate', () => {
+  if (stopAt != null && player.currentTime >= stopAt) { player.pause(); stopAt = null; }
+});
+
+document.getElementById('add').onclick = () => {
+  const t = player.currentTime || 0;
+  clips.unshift({ start: t, end: Math.min(t + 45, data.duration), title: 'New clip', caption: '', hashtags: [], teams: [], use_hook: false, hook_start: t, hook_end: t, layout: data.speaker_switching ? 'speaker' : Object.keys(data.cameras || {}).length ? `host:${Object.keys(data.cameras)[0]}` : 'blur', keep: true });
+  draw(); play(0);
+};
+
+document.getElementById('render').onclick = async () => {
+  const kept = clips.filter(c => c.keep && c.end > c.start);
+  if (!kept.length) { document.getElementById('meta').textContent = 'Tick Keep on at least one clip first.'; return; }
+  await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clips: kept, framing }) });
+  player.pause();
+  document.getElementById('main').innerHTML = `<div class="done">Rendering ${kept.length} clips. Check your terminal.</div>`;
+};
+</script>
+</body>
+</html>

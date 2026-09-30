@@ -15,8 +15,10 @@ from pathlib import Path
 
 
 def load_transcript_file(path: Path, duration: float) -> dict:
-    """Read an .srt or .vtt file into segments (no word times)."""
+    """Read an .srt, .vtt or timestamped .txt file into segments (no word times)."""
     text = path.read_text(encoding="utf-8-sig")
+    if "-->" not in text:
+        return _load_timestamped_text(text, path, duration)
     stamp = r"(\d+:)?(\d{1,2}):(\d{2})[.,](\d{1,3})"
     pattern = re.compile(rf"({stamp})\s*-->\s*({stamp})[^\n]*\n(.*?)(?:\n\s*\n|\Z)", re.S)
     segments = []
@@ -28,6 +30,35 @@ def load_transcript_file(path: Path, duration: float) -> dict:
     if not segments:
         raise SystemExit(f"Couldn't read any timed lines from {path.name}. Export it as .srt or .vtt.")
     return {"duration": duration, "segments": segments}
+
+
+def _load_timestamped_text(text: str, path: Path, duration: float) -> dict:
+    """YouTube's transcript as text: a time like 1:02:03 or 4:05 on its own line or
+    starting a line, then what was said until the next time."""
+    stamp = re.compile(r"^\s*\[?((?:\d+:)?\d{1,2}:\d{2})\]?\s*(.*)$")
+    marks = []
+    for line in text.replace("\r\n", "\n").split("\n"):
+        m = stamp.match(line)
+        if m:
+            marks.append([to_secs(m.group(1)), m.group(2).strip()])
+        elif line.strip() and marks:
+            marks[-1][1] = (marks[-1][1] + " " + line.strip()).strip()
+    if not marks:
+        raise SystemExit(f"{path.name} has no timestamps, so there's no way to line it up with the video. "
+                         "Run without --transcript and the tool will make its own.")
+    segments = []
+    for i, (t, said) in enumerate(marks):
+        end = min(marks[i + 1][0], t + 30) if i + 1 < len(marks) else min(t + 5, duration)
+        if said and end > t:
+            segments.append({"start": t, "end": end, "text": said, "words": []})
+    return {"duration": duration, "segments": segments}
+
+
+def to_secs(stamp: str) -> float:
+    total = 0.0
+    for part in stamp.split(":"):
+        total = total * 60 + float(part)
+    return total
 
 
 def transcribe(video: Path, out: Path, model_size: str = "small") -> dict:

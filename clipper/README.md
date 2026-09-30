@@ -85,7 +85,7 @@ Hand that file to `--transcript`.
 Pick whichever way suits the night.
 
 **Let Claude find the clips.** Export a transcript from your recording or
-editing app as `.srt` or `.vtt`, then:
+editing app as `.srt` or `.vtt` (or YouTube's transcript `.txt` with timestamps), then:
 ```
 python -m f9yclip "episode.mp4" --transcript "episode.srt"
 ```

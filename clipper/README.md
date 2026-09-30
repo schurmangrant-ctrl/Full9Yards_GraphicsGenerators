@@ -77,9 +77,12 @@ drag the box over the person. It's saved in `framing.json` and reused next
 episode, so you only touch it when someone sits differently.
 
 Recordings without the separate mic tracks still work. The camera can't
-follow the talker, so each clip stays on one host: pick **Grant only**,
-**Noah only** and so on under Framing, or name the host in a ranges file:
-`12:30-13:45 [Caden] Bama is back`.
+follow the talker on its own, so either keep a clip on one host (**Grant
+only**, **Noah only** and so on under Framing, or `12:30-13:45 [Caden] Bama is
+back` in a ranges file) or pick **Cut between hosts**: play the clip and
+press **Noah here**, **Caden here** and so on as each person starts talking.
+In a `.json` clips file, cuts are the words each host starts on:
+`"host": "Noah", "cuts": [{"host": "Caden", "say": "Absolutely. I think"}]`.
 
 **A free transcript while you record.** The LocalVocal plugin
 (https://github.com/royshil/obs-localvocal) transcribes on your own computer

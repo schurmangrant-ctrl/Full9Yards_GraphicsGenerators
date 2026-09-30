@@ -282,6 +282,26 @@ def main():
     assert six["use_hook"] and six["hook_start"] == next(w for w in WORDS if w["word"] == "JJ")["start"], six
     assert six["players"][0]["at"] == mc["start"] and six["shots"][0][2] == "Noah", six
     print("mode 6 ok")
+
+    # 7. Cuts between hosts placed by the words each one starts on.
+    written.write_text(json.dumps([{
+        "start": "0:01", "end": "0:16", "host": "Grant", "title": "Cuts", "caption": "x",
+        "cuts": [{"host": "Caden", "say": "No way, you are crazy"}, {"host": "Noah", "say": "I did look"}],
+    }]))
+    with mock.patch("anthropic.Anthropic", side_effect=AssertionError("Claude was called")):
+        run_cli([str(video5), "--ranges", str(written), "--no-review"])
+    seven = json.loads((tmp / "five_clips" / "approved.json").read_text())[0]
+    at = lambda word: next(w for w in WORDS if w["word"] == word)["start"] - 1
+    assert [s[2] for s in seven["shots"]] == ["Grant", "Caden", "Noah"], seven["shots"]
+    assert abs(seven["shots"][1][0] - at("No")) < 0.01 and abs(seven["shots"][2][0] - at("I")) < 0.01, seven["shots"]
+    out7 = max((tmp / "five_clips").glob("*cuts*.mp4"), key=lambda f: f.stat().st_mtime)
+    for t, want in [(1.0, "red"), (at("No") + 0.6, "blue"), (at("I") + 0.6, "green")]:
+        rgb = subprocess.run([ffmpeg_exe(), "-loglevel", "error", "-ss", str(t), "-i", str(out7), "-frames:v", "1",
+                              "-vf", "crop=10:10:900:300,scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+                             capture_output=True, check=True).stdout
+        got = ["red", "green", "blue"][max(range(3), key=lambda k: rgb[k])]
+        assert got == want, (t, want, list(rgb))
+    print("mode 7 ok")
     print("frames:", tmp / "hook.png", tmp / "opening.png")
 
 

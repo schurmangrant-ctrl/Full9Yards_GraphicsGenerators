@@ -91,7 +91,7 @@ def main() -> None:
             if titles[id(mine)]:
                 d["title"] = titles[id(mine)]
             if mine.get("layout"):
-                d["layout"] = mine["layout"]
+                d.setdefault("layout", mine["layout"])
             d["score"] = None
             d["keep"] = True
         candidates = dressed
@@ -147,7 +147,12 @@ def main() -> None:
         elif not covers(c.get("words"), lo, c["end"]):
             print(f"Timing captions for {c['title']!r}...")
             c["words"] = words_for_range(video, max(lo - 0.5, 0), c["end"] + 0.5, whisper)
-        if c.get("layout", "").startswith("host:") and cameras and c["layout"][5:] in cameras["boxes"]:
+        if c.get("layout") == "cuts" and cameras and c.get("cuts"):
+            # Cuts placed by hand: whoever the last cut before each moment names.
+            c["layout"] = "speaker"
+            c["shots"] = cut_shots(c["cuts"], c["start"], c["end"], cameras["boxes"])
+            c["hook_shots"] = cut_shots(c["cuts"], c["hook_start"], c["hook_end"], cameras["boxes"])
+        elif c.get("layout", "").startswith("host:") and cameras and c["layout"][5:] in cameras["boxes"]:
             # One host for the whole clip: the same crop, without following the mics.
             host = c["layout"][5:]
             c["layout"] = "speaker"
@@ -223,6 +228,21 @@ def read_ranges(path: Path) -> list[dict]:
     if not clips:
         raise SystemExit(f"No time ranges found in {path.name}. Write one per line, like 12:30-13:45.")
     return clips
+
+
+def cut_shots(cuts: list[dict], start: float, end: float, hosts) -> list[tuple]:
+    """Shots between start and end, relative to start, from cuts like {"at": 1512.4, "host": "Caden"}."""
+    cuts = sorted((c for c in cuts if c.get("host") in hosts), key=lambda c: c["at"])
+    if not cuts or end <= start:
+        return [(0.0, max(end - start, 0.0), next(iter(hosts)))]
+    who = next((c["host"] for c in reversed(cuts) if c["at"] <= start), cuts[0]["host"])
+    shots, t = [], start
+    for c in cuts:
+        if start < c["at"] < end and c["host"] != who:
+            shots.append((round(t - start, 2), round(c["at"] - start, 2), who))
+            t, who = c["at"], c["host"]
+    shots.append((round(t - start, 2), round(end - start, 2), who))
+    return shots
 
 
 def read_sections(path: Path) -> list[tuple[float, str]]:

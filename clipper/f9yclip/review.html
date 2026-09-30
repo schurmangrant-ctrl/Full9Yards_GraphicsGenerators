@@ -149,11 +149,18 @@ function draw() {
         <span class="small">Framing</span>
         <select data-f="layout" aria-label="Framing">
           ${[...(data.speaker_switching ? [['speaker', 'Follow the speaker']] : []),
+             ...(Object.keys(data.cameras || {}).length > 1 ? [['cuts', 'Cut between hosts']] : []),
              ...Object.keys(data.cameras || {}).map(h => [`host:${h}`, `${h} only`]),
              ['blur', 'Whole shot, blurred fill'], ['left', 'Crop left'], ['center', 'Crop center'], ['right', 'Crop right']]
             .map(([v, t]) => `<option value="${v}" ${c.layout === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
       </div>
+      ${c.layout === 'cuts' ? `<div class="row"><span class="small">Cuts</span>
+        ${(c.cuts || []).map((k, j) => `<span class="len">${fmt(k.at)} ${esc(k.host)}${j ? ` <button data-a="uncut" data-j="${j}" aria-label="Remove cut">✕</button>` : ''}</span>`).join(' · ')}
+      </div>
+      <div class="row"><span class="small">Play the clip and cut to</span>
+        ${Object.keys(data.cameras).map(h => `<button data-a="cut" data-h="${esc(h)}">${esc(h)} here</button>`).join('')}
+      </div>` : ''}
       <div class="row">
         <label class="keep" style="margin-left:0"><input type="checkbox" data-f="use_hook" ${c.use_hook ? 'checked' : ''}> Open with hook</label>
         <button data-a="hook">▶ Hook</button>
@@ -196,6 +203,10 @@ list.addEventListener('change', e => {
       .map(n => before[n.toLowerCase()] || { name: n, at: c.start });
     return;
   }
+  else if (f === 'layout') {
+    c.layout = e.target.value;
+    if (c.layout === 'cuts' && !(c.cuts || []).length) c.cuts = [{ at: c.start, host: Object.keys(data.cameras)[0] }];
+  }
   else if (f) { c[f] = e.target.value; return; }
   draw();
 });
@@ -205,6 +216,14 @@ list.addEventListener('click', e => {
   const i = +btn.closest('.card').dataset.i, c = clips[i];
   const a = btn.dataset.a;
   if (a === 'play') return play(i);
+  if (a === 'cut') {
+    // Cut at the playhead; before the clip starts, change who opens it.
+    const t = playingIndex === i && player.currentTime > c.start ? Math.min(player.currentTime, c.end) : c.start;
+    c.cuts = [...(c.cuts || []).filter(k => Math.abs(k.at - t) > 0.3 && (t > c.start || k.at > c.start)), { at: +t.toFixed(2), host: btn.dataset.h }]
+      .sort((x, y) => x.at - y.at);
+    return draw();
+  }
+  if (a === 'uncut') { c.cuts.splice(+btn.dataset.j, 1); return draw(); }
   if (a === 'hook') { playingIndex = i; stopAt = c.hook_end; player.currentTime = c.hook_start; player.play(); return draw(); }
   if (a === 's-') c.start = Math.max(0, c.start - 1);
   if (a === 's+') c.start = Math.min(c.end - 1, c.start + 1);

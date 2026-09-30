@@ -194,6 +194,14 @@ def place_written(clip: dict) -> dict:
     for item in clip.get("players", []) + clip.get("games", []):
         at = find_phrase(words, item.pop("say", "") or item.get("name") or item.get("team", ""))
         item["at"] = at[0] if at else -1
+    if clip.get("cuts") and clip.get("layout", "").startswith("host:"):
+        # "cuts": [{"host": "Caden", "say": "first words Caden says"}, ...] after the named host opens.
+        cuts = [{"at": clip["start"], "host": clip["layout"][5:]}]
+        for cut in clip["cuts"]:
+            at = find_phrase(words, cut.get("say", ""))
+            if at:
+                cuts.append({"at": at[0], "host": cut["host"]})
+        clip["cuts"], clip["layout"] = sorted(cuts, key=lambda c: c["at"]), "cuts"
     clip["teams"] = [{"name": t, "at": clip["start"]} for t in clip.get("teams", [])]
     clip.setdefault("hashtags", [])
     clip.setdefault("why", "")
